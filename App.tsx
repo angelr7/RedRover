@@ -1,13 +1,34 @@
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { Stack } from "./constants/navigation";
 import Homepage from "./screens/Homepage";
 import Register from "./screens/Register";
 import Login from "./screens/Login";
+import { auth } from "./firebase";
+import { View } from "react-native";
+import LoadingScreen from "./components/LoadingScreen";
+import { useFonts, Actor_400Regular } from "@expo-google-fonts/actor";
+import UserHomeScreen from "./screens/UserHomeScreen";
+import Poll from "./screens/Poll";
+import CreatePollScreen from "./screens/CreatePollScreen";
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ Actor_400Regular });
+  const [user, setUser] = useState(undefined);
+
+  useEffect(() => {
+    auth.onAuthStateChanged((user) => {
+      setUser(user ?? null);
+    });
+  }, []);
+
+  if (!fontsLoaded) return <View />;
+  if (user === undefined) return <LoadingScreen />;
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Auth">
+      <Stack.Navigator
+        initialRouteName={user === null ? "Auth" : "UserHomeScreen"}
+      >
         <Stack.Screen
           name="Auth"
           component={Homepage}
@@ -21,6 +42,26 @@ export default function App() {
         <Stack.Screen
           name="Login"
           component={Login}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="UserHomeScreen"
+          component={UserHomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="NoAnimationUserHomeScreen"
+          component={UserHomeScreen}
+          options={{ headerShown: false, animation: "none" }}
+        />
+        <Stack.Screen
+          name="Poll"
+          component={Poll}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CreatePollScreen"
+          component={CreatePollScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

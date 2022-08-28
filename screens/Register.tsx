@@ -12,11 +12,12 @@ import { useFonts, Actor_400Regular } from "@expo-google-fonts/actor";
 import React, { ReactElement, useEffect, useRef, useState } from "react";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import Spacer from "../components/Spacer";
-import { handleSignup } from "../firebase";
+import { initUser, auth } from "../firebase";
+import Toast from "react-native-root-toast";
 
 const SYMBOLS = "`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/";
 
-// TODO: ask alex about updating this
+// TODO: need to update to filter out existing emails
 const isPossibleEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
@@ -33,6 +34,30 @@ const isValidPassword = (password: string) => {
     }
 
   return isLongEnough && hasUppercase && hasNumber && hasSymbol;
+};
+
+const showToast = (message: string) => {
+  Toast.show(message, {
+    animation: true,
+    duration: 10000, // 10s display,
+    position: Toast.positions.TOP,
+    containerStyle: {
+      width: SCREEN_WIDTH * 0.75,
+      height: 100,
+      top: 20,
+      justifyContent: "center",
+      alignContent: "center",
+      backgroundColor: "#507DBC",
+      paddingRight: 10,
+      paddingLeft: 10,
+    },
+    textStyle: {
+      fontFamily: "Actor_400Regular",
+      fontSize: 17.5,
+      lineHeight: 25,
+    },
+    shadow: false,
+  });
 };
 
 // TODO: update navigation types
@@ -121,8 +146,23 @@ const handlePress =
       } else {
         if (inputVal === password) {
           // handle signup
-          const userInfo = handleSignup(email, password);
-          console.log(userInfo);
+          const result = await initUser(email, password);
+          if (result === "auth/email-already-in-use") {
+            navigation.popToTop();
+            showToast(
+              "That email has already been registered! Please log in to continue!"
+            );
+            return;
+          }
+
+          setInputStyle(undefined);
+          setShowErrorMessages(false);
+          setPassword(inputVal);
+          setInputVal("");
+          navigation.popToTop();
+          showToast(
+            "Your email has been registered!\nClick the link we sent you to verify and log in!"
+          );
         } else {
           setTriggerError(true);
         }
@@ -309,6 +349,7 @@ export default function Register({ navigation }) {
             value={inputVal}
             keyboardType="email-address"
             secureTextEntry={email !== ""}
+            autoCapitalize="none"
             onChangeText={(text) => {
               setInputVal(text);
             }}

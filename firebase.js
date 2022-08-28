@@ -7,6 +7,17 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  getFirestore,
+  addDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+} from "firebase/firestore";
+
+let moment = require("moment-timezone");
 
 const firebaseConfig = {
   apiKey: "AIzaSyBVbrOgLXw-zGVNr_1E20eXJEXvh0Cr-Yo",
@@ -19,17 +30,54 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
 
-const askForConfirmation = (email) => {
-  sendEmailVerification();
+// // TODO: create an error handler
+const initUser = async (email, password) => {
+  try {
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    await sendEmailVerification(user);
+    await addDoc(collection(db, "users"), {
+      id: user.uid,
+      email: email,
+      intakeSurvey: false,
+      createdAt: `${moment()}`,
+      admin: false,
+    });
+
+    return "ok";
+  } catch (error) {
+    return error.code;
+  }
 };
 
-// // TODO: create an error handler for this function
-const handleSignup = (email, password) => {
-  
+const getUserData = async (user, setUserData) => {
+  const q = query(
+    collection(db, "users"),
+    where("id", "==", user.uid),
+    limit(1)
+  );
+
+  try {
+    const queryResult = await getDocs(q);
+    queryResult.forEach((userData) => {
+      setUserData(userData.data());
+    });
+  } catch (error) {
+    console.log(error);
+  }
 };
 
-export { handleSignup };
+const makeAdminUser = async (documentID) => {
+  const docRef = doc(db, "users", "y4zx6afeeRJVK88TfMTy");
+  console.log(docRef);
+};
+
+export { initUser, db, auth, getUserData, makeAdminUser };

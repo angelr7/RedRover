@@ -7,15 +7,17 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "start-server": "ts-node ./server/server.tsx",
-    "restart-server": "kill $(lsof -t -i:8080) && npm run start-server"
+    "createAdmin": "node ./scripts/createAdmin.js"
   },
   "dependencies": {
     "@expo-google-fonts/actor": "^0.2.2",
     "@expo-google-fonts/inter": "^0.2.2",
     "@react-native-async-storage/async-storage": "~1.17.3",
-    "@react-navigation/native": "^6.0.11",
+    "@react-native-firebase/firestore": "^15.3.0",
+    "@react-navigation/bottom-tabs": "^6.3.3",
+    "@react-navigation/native": "^6.0.12",
     "@react-navigation/native-stack": "^6.7.0",
+    "@shopify/flash-list": "1.1.0",
     "@types/react": "~18.0.0",
     "@types/react-native": "~0.69.1",
     "babel-plugin-macros": "^3.1.0",
@@ -25,12 +27,17 @@
     "expo-updates": "~0.14.4",
     "express": "^4.18.1",
     "firebase": "^9.9.3",
+    "moment-timezone": "^0.5.35",
     "react": "18.0.0",
-    "react-native": "0.69.4",
+    "react-native": "0.69.5",
+    "react-native-device-info": "^10.0.2",
+    "react-native-ionicons": "^4.x",
+    "react-native-root-siblings": "^4.1.1",
+    "react-native-root-toast": "^3.4.0",
     "react-native-safe-area-context": "4.3.1",
     "react-native-screens": "~3.15.0",
-    "react-native-vector-icons": "^9.2.0",
-    "typescript": "^4.6.3"
+    "typescript": "^4.6.3",
+    "expo-haptics": "~11.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.18.6",
