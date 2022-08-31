@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 
-export default function LoadingScreen() {
+export default function LoadingScreen({ color }: { color?: string }) {
   const [triggerAnimation, setTriggerAnimation] = useState(false);
   const spinAnimationProgress = useRef(new Animated.Value(0)).current;
   const animationStyle = {
@@ -62,11 +62,17 @@ export default function LoadingScreen() {
     >
       <Animated.View style={[styles.logoContainer, animationStyle]}>
         <Text
-          style={[styles.logoText, { transform: [{ scaleX: -1 }], left: 10 }]}
+          style={[
+            styles.logoText,
+            { transform: [{ scaleX: -1 }], left: 10 },
+            color && { color },
+          ]}
         >
           R
         </Text>
-        <Text style={[styles.logoText, { right: 10 }]}>R</Text>
+        <Text style={[styles.logoText, { right: 10 }, color && { color }]}>
+          R
+        </Text>
       </Animated.View>
     </View>
   );

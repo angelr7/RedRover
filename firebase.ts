@@ -1,10 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import {
-  initializeAuth,
+  // TS throws an error for this import, but it's actually okay (for now)
   getReactNativePersistence,
+  initializeAuth,
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  User,
 } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -18,6 +20,21 @@ import {
 } from "firebase/firestore";
 
 let moment = require("moment-timezone");
+
+interface UserData {
+  admin: boolean;
+  createdAt: string;
+  email: string;
+  id: string;
+  intakeSurvey: boolean;
+}
+
+interface PollData {
+  title: string;
+  description: string;
+  previewImageURI: string;
+  additionalInfo: string;
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyBVbrOgLXw-zGVNr_1E20eXJEXvh0Cr-Yo",
@@ -36,7 +53,7 @@ const auth = initializeAuth(app, {
 });
 
 // // TODO: create an error handler
-const initUser = async (email, password) => {
+const initUser = async (email: string, password: string) => {
   try {
     const { user } = await createUserWithEmailAndPassword(
       auth,
@@ -58,7 +75,7 @@ const initUser = async (email, password) => {
   }
 };
 
-const getUserData = async (user, setUserData) => {
+const getUserData = async (user: User, setUserData: any) => {
   const q = query(
     collection(db, "users"),
     where("id", "==", user.uid),
@@ -75,9 +92,28 @@ const getUserData = async (user, setUserData) => {
   }
 };
 
-const makeAdminUser = async (documentID) => {
-  const docRef = doc(db, "users", "y4zx6afeeRJVK88TfMTy");
-  console.log(docRef);
+// initializes a poll after the client provides description information
+const createPoll = async (userData: UserData, pollData: PollData) => {
+  await addDoc(collection(db, "polls"), {
+    ...pollData,
+    author: userData.id,
+    dateCreated: `${moment()}`,
+    published: false,
+  });
 };
 
-export { initUser, db, auth, getUserData, makeAdminUser };
+const getPolls = async (userID: string): Promise<PollData[]> => {
+  const q = query(collection(db, "polls"), where("author", "==", userID));
+
+  try {
+    const queryResult = await getDocs(q);
+    const pollData = [];
+    queryResult.forEach((doc) => {
+      pollData.push(doc.data());
+    });
+    return pollData;
+  } catch (error) {} // do something here
+};
+
+export { initUser, db, auth, getUserData, createPoll, getPolls };
+export type { UserData, PollData };
