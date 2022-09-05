@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { BlurView } from "expo-blur";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Toast from "react-native-root-toast";
@@ -20,11 +21,12 @@ import {
   Pressable,
   ScrollView,
   Image,
+  ImageBackground,
 } from "react-native";
 import { createPoll, UserData } from "../firebase";
 import LoadingScreen from "../components/LoadingScreen";
 
-type Screen = "Initial" | "Description" | "Loading";
+type Screen = "Initial" | "Description" | "Loading" | "AddQuestions";
 interface InitialPromptProps {
   keyboardHeight: number;
   keyboardAnimationVal: Animated.Value;
@@ -64,7 +66,26 @@ interface EditDescriptionModalProps {
 interface AdditionalInfoProps {
   textInputRef: React.MutableRefObject<TextInput>;
   scrollViewRef: React.MutableRefObject<ScrollView>;
+  editingDescription: boolean;
   setOuterAdditionalInfo: React.Dispatch<React.SetStateAction<string>>;
+}
+interface AddQuestionsProps {
+  userData: {
+    admin: boolean;
+    createdAt: string;
+    email: string;
+    id: string;
+    intakeSurvey: boolean;
+  };
+  pollData: {
+    additionalInfo: string;
+    author: string;
+    dateCreated: string;
+    description: string;
+    previewImageURI: string;
+    published: boolean;
+    title: string;
+  };
 }
 
 const handleIntialPromptAnimations = (
@@ -303,6 +324,8 @@ const DescriptionContainer = ({
           styles.descriptionContainer,
           styles.centerView,
           {
+            // this one can be absolute
+            height: 150,
             transform: [
               {
                 translateX: shakeAnimationProgress.interpolate({
@@ -432,6 +455,7 @@ const EditDescriptionModal = ({
 const AdditionalInfoContainer = ({
   textInputRef,
   scrollViewRef,
+  editingDescription,
   setOuterAdditionalInfo,
 }: AdditionalInfoProps) => {
   const [editing, setEditing] = useState(false);
@@ -459,7 +483,8 @@ const AdditionalInfoContainer = ({
         ]).start(() => {
           setOuterAdditionalInfo(additionalInfo);
           setUseWhite(true);
-          scrollViewRef.current.scrollToEnd({ animated: true });
+          // if (!editingDescription)
+          //   scrollViewRef.current.scrollToEnd({ animated: true });
         });
       else hasMounted.current = true;
     });
@@ -493,7 +518,7 @@ const AdditionalInfoContainer = ({
               });
             } else {
               // user can't lock until blur is complete, so no need for animation here
-              scrollViewRef.current.scrollToEnd({ animated: true });
+              // scrollViewRef.current.scrollToEnd({ animated: true });
               setOuterAdditionalInfo(additionalInfo);
               setEditing(false);
               setUseWhite(false);
@@ -502,7 +527,7 @@ const AdditionalInfoContainer = ({
         >
           <FontAwesome5
             name={editing ? "unlock" : "lock"}
-            style={{ color: "#FFF", fontSize: 15 }}
+            style={{ color: "#FFF", fontSize: 15, opacity: 1 }}
           />
         </TouchableOpacity>
       </View>
@@ -523,7 +548,7 @@ const AdditionalInfoContainer = ({
               {
                 translateY: riseAnimation.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0, SCREEN_HEIGHT * -0.925],
+                  outputRange: [0, SCREEN_HEIGHT * -0.8],
                 }),
               },
             ],
@@ -756,6 +781,159 @@ const PreviewImageContainer = ({
   );
 };
 
+const AddQuestions = ({ userData, pollData }: AddQuestionsProps) => {
+  const [flipped, setFlipped] = useState(false);
+  const flipAnimationProgress = useRef(new Animated.Value(0)).current;
+  const fadeAnimationProgress = useRef(new Animated.Value(0)).current;
+  const componentMounted = useRef(false);
+
+  useEffect(() => {
+    if (flipped) {
+      Animated.sequence([
+        Animated.timing(fadeAnimationProgress, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flipAnimationProgress, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnimationProgress, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      if (componentMounted.current)
+        Animated.sequence([
+          Animated.timing(fadeAnimationProgress, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(flipAnimationProgress, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnimationProgress, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      else componentMounted.current = true;
+    }
+  }, [flipped]);
+
+  return (
+    <ScrollView
+      style={[
+        { width: "100%", height: "100%", paddingLeft: 10, paddingRight: 10 },
+      ]}
+    >
+      <Spacer width="100%" height={10} />
+      <Pressable
+        onPress={() => {
+          setFlipped(!flipped);
+        }}
+      >
+        <Animated.View
+          style={{
+            transform: [
+              {
+                rotateY: flipAnimationProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0deg", "180deg"],
+                }),
+              },
+            ],
+          }}
+        >
+          <ImageBackground
+            source={{ uri: pollData.previewImageURI }}
+            resizeMode="cover"
+            style={{ width: "100%", height: 600 }}
+            borderRadius={7.5}
+          >
+            {/* Text must be wrapped in a View b/c the Text component doesn't appear to support borderRadius */}
+            <Animated.View
+              style={{
+                alignSelf: "center",
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                marginTop: 5,
+                borderRadius: 5,
+                opacity: fadeAnimationProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                }),
+                transform: [
+                  {
+                    scaleX: flipAnimationProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, -1],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Text
+                style={{
+                  alignSelf: "center",
+                  fontSize: 30,
+                  color: "#FFF",
+                  fontFamily: "Actor_400Regular",
+                  borderRadius: 5,
+                  paddingLeft: 5,
+                  paddingRight: 5,
+                }}
+              >
+                {flipped ? "Additional Info" : pollData.title}
+              </Text>
+            </Animated.View>
+            <View
+              style={[
+                styles.centerView,
+                {
+                  width: "100%",
+                  flex: 1,
+                  padding: 5,
+                },
+              ]}
+            >
+              <Animated.View
+                style={{
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  paddingLeft: 5,
+                  paddingRight: 5,
+                  borderRadius: 5,
+                  opacity: fadeAnimationProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 0],
+                  }),
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Actor_400Regular",
+                    fontSize: 20,
+                    color: "#FFF",
+                  }}
+                >
+                  {pollData.description}
+                </Text>
+              </Animated.View>
+            </View>
+          </ImageBackground>
+        </Animated.View>
+      </Pressable>
+    </ScrollView>
+  );
+};
+
 const SetDescriptionInformation = ({
   title,
   keyboardAnimationVal,
@@ -831,6 +1009,7 @@ const SetDescriptionInformation = ({
         <AdditionalInfoContainer
           textInputRef={textInputRef}
           scrollViewRef={scrollViewRef}
+          editingDescription={editingDescription}
           setOuterAdditionalInfo={setAdditionalInfo}
         />
       </Animated.View>
@@ -868,13 +1047,20 @@ const SetDescriptionInformation = ({
             scrollViewRef.current.scrollTo({ y: 0, animated: true });
             showToast("You must enter a description for your poll!");
           } else {
-            createPoll(userData, {
+            const pollData = {
               title,
               additionalInfo,
               description: mainDescription,
               previewImageURI: previewImageURI ?? "",
-            })
-              .then(() => {})
+            };
+
+            createPoll(userData, pollData)
+              .then(() => {
+                setScreen({
+                  name: "AddQuestions",
+                  params: { userData, pollData },
+                });
+              })
               .catch((error) => {
                 console.log(error);
               }); // do something in the event of an error
@@ -913,9 +1099,24 @@ const SetDescriptionInformation = ({
 };
 
 export default function CreatePollScreen({ navigation, route }) {
-  const [screen, setScreen] = useState<LocalPageScreen>({ name: "Initial" });
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardAnimationVal = useRef(new Animated.Value(0)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const hasInitialScreen = route.params.initialScreen !== undefined;
+
+  const initialScreenParams =
+    route.params.initialScreen === undefined
+      ? undefined
+      : route.params.initialScreen.params;
+
+  const [screen, setScreen] = useState<LocalPageScreen>({
+    name: !hasInitialScreen ? "Initial" : route.params.initialScreen.name,
+    ...(hasInitialScreen &&
+      initialScreenParams && {
+        params: initialScreenParams,
+      }),
+  });
+
   const useCenterView = screen.name !== "Description";
   const { userData } = route.params;
 
@@ -966,6 +1167,14 @@ export default function CreatePollScreen({ navigation, route }) {
                 setScreen={setScreen}
               />
             );
+          case "AddQuestions":
+            if (screen.params.pollData)
+              return (
+                <AddQuestions
+                  pollData={screen.params.pollData}
+                  userData={screen.params.userData}
+                />
+              );
           case "Loading":
             return <LoadingScreen color="#D2042D" />;
           default:
