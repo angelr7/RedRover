@@ -1,8 +1,8 @@
 import { View, Animated } from "react-native";
 
 interface SpacerProps {
-  width: number | string;
-  height: number | string;
+  width?: number | string;
+  height?: number | string;
 }
 
 interface StyleProps {

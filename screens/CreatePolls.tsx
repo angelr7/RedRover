@@ -8,12 +8,14 @@ import {
   Pressable,
   Animated,
   Image,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useRef, useState } from "react";
-import { getPolls } from "../firebase";
+import React, { useEffect, useRef, useState } from "react";
+import { getPolls, removePoll } from "../firebase";
 import Spacer from "../components/Spacer";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import LoadingScreen from "../components/LoadingScreen";
 
 interface PollData {
@@ -25,13 +27,26 @@ interface PollData {
   dateCreated: string;
   published: boolean;
 }
+interface PollPreviewProps {
+  pollData: PollData;
+  navigation: any;
+  userData: any;
+  setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  setPollData: React.Dispatch<React.SetStateAction<PollData>>;
+  selectedDraft: React.MutableRefObject<any>;
+}
 
 const ListEmpty = () => {
   return (
     <>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <Text
-          style={{ color: "#FFF", fontSize: 25, textAlignVertical: "center" }}
+          style={{
+            color: "#FFF",
+            fontSize: 25,
+            textAlignVertical: "center",
+            fontFamily: "Actor_400Regular",
+          }}
         >
           {"Nothing to see here! "}
         </Text>
@@ -45,11 +60,10 @@ const PollPreview = ({
   pollData,
   navigation,
   userData,
-}: {
-  pollData: PollData;
-  navigation: any;
-  userData: any;
-}) => {
+  setModalVisible,
+  setPollData,
+  selectedDraft,
+}: PollPreviewProps) => {
   const [flipped, setFlipped] = useState(false);
   const flipAnimationProgress = useRef(new Animated.Value(0)).current;
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -80,20 +94,46 @@ const PollPreview = ({
         },
       ]}
       onPress={() => {
-        if (!flipped)
-          Animated.timing(flipAnimationProgress, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: false,
-          }).start(() => {
-            setFlipped(true);
-          });
-        else
+        if (!flipped) {
+          if (selectedDraft.current !== null) {
+            Animated.parallel([
+              Animated.timing(selectedDraft.current.animationRef, {
+                toValue: 0,
+                duration: 500,
+                useNativeDriver: false,
+              }),
+              Animated.timing(flipAnimationProgress, {
+                toValue: 1,
+                duration: 500,
+                useNativeDriver: false,
+              }),
+            ]).start(() => {
+              selectedDraft.current.setFlipped(false);
+              selectedDraft.current = {
+                animationRef: flipAnimationProgress,
+                setFlipped: setFlipped,
+              };
+              setFlipped(true);
+            });
+          } else
+            Animated.timing(flipAnimationProgress, {
+              toValue: 1,
+              duration: 500,
+              useNativeDriver: false,
+            }).start(() => {
+              selectedDraft.current = {
+                animationRef: flipAnimationProgress,
+                setFlipped: setFlipped,
+              };
+              setFlipped(true);
+            });
+        } else
           Animated.timing(flipAnimationProgress, {
             toValue: 0,
             duration: 500,
             useNativeDriver: false,
           }).start(() => {
+            selectedDraft.current = null;
             setFlipped(false);
           });
       }}
@@ -137,11 +177,18 @@ const PollPreview = ({
                 alignSelf: "center",
                 marginTop: 10,
                 borderRadius: 5,
+                padding: 5,
               },
               styles.centerView,
             ]}
           >
-            <Text style={{ color: "#FFF", fontFamily: "Actor_400Regular" }}>
+            <Text
+              style={{
+                color: "#FFF",
+                fontFamily: "Actor_400Regular",
+              }}
+              ellipsizeMode="tail"
+            >
               {pollData.title}
             </Text>
           </View>
@@ -173,7 +220,14 @@ const PollPreview = ({
               styles.centerView,
             ]}
           >
-            <Text style={{ color: "#FFF", fontFamily: "Actor_400Regular" }}>
+            <Text
+              style={{
+                color: "#FFF",
+                fontFamily: "Actor_400Regular",
+                maxWidth: "90%",
+              }}
+              ellipsizeMode="tail"
+            >
               {pollData.title}
             </Text>
           </View>
@@ -231,15 +285,165 @@ const PollPreview = ({
             Edit
           </Text>
         </AnimatedTouchable>
+
+        <Spacer width="100%" height={5} />
+
+        <AnimatedTouchable
+          disabled={!flipped}
+          style={[
+            styles.pollPreviewButton,
+            styles.centerView,
+            { opacity: flipAnimationProgress },
+          ]}
+          onPress={() => {
+            setPollData(pollData);
+            setModalVisible(true);
+          }}
+        >
+          <Text
+            style={{
+              color: "#D2042D",
+              fontFamily: "Actor_400Regular",
+              fontSize: 12,
+              textAlign: "center",
+            }}
+          >
+            Delete
+          </Text>
+        </AnimatedTouchable>
       </View>
     </AnimatedPressable>
   );
 };
 
+const DeleteMessageModal = ({
+  pollData,
+  modalVisible,
+  setModalVisible,
+  setRefetch,
+}: {
+  pollData: PollData;
+  modalVisible: boolean;
+  setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  setRefetch: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  return (
+    <Modal visible={modalVisible} animationType="fade" transparent>
+      <View
+        style={[
+          {
+            flex: 1,
+            width: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          },
+          styles.centerView,
+        ]}
+      >
+        <View
+          style={{
+            width: 300,
+            backgroundColor: "#FFF",
+            borderRadius: 7.5,
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <FontAwesome5
+              name="trash-alt"
+              style={{ fontSize: 30, color: "#D2042D" }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: "#D2042D",
+                  alignSelf: "center",
+                  fontSize: 27.5,
+                  fontFamily: "Actor_400Regular",
+                }}
+              >
+                {"Delete Draft?"}
+              </Text>
+            </View>
+          </View>
+          <Spacer width="100%" height={20} />
+          <View
+            style={[styles.centerView, { width: "100%", flexDirection: "row" }]}
+          >
+            <TouchableOpacity
+              onPress={async () => {
+                await removePoll(pollData.author, pollData.dateCreated);
+                setRefetch(true);
+                setModalVisible(false);
+              }}
+              style={[
+                styles.centerView,
+                {
+                  backgroundColor: "#F00",
+                  width: 100,
+                  height: 40,
+                  borderRadius: 5,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: "#FFF",
+                  fontFamily: "Actor_400Regular",
+                  fontSize: 15,
+                }}
+              >
+                Yes, I'm Sure
+              </Text>
+            </TouchableOpacity>
+            <Spacer width={10} height="100%" />
+            <TouchableOpacity
+              onPress={() => {
+                setModalVisible(false);
+              }}
+              style={[
+                styles.centerView,
+                {
+                  borderWidth: 1,
+                  borderColor: "#F00",
+                  backgroundColor: "#FFF",
+                  width: 100,
+                  height: 40,
+                  borderRadius: 5,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: "#F00",
+                  fontFamily: "Actor_400Regular",
+                  fontSize: 15,
+                }}
+              >
+                No, Go Back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function LandingScreen({ route, navigation }) {
   const [polls, setPolls] = useState<any>();
-  const { userData } = route.params;
+  const [modalVisible, setModalVisible] = useState(false);
+  const [pollData, setPollData] = useState<PollData>();
+  const [refetch, setRefetch] = useState(false);
+  const mounted = useRef(false);
+  const selectedDraft = useRef(null);
 
+  const { userData } = route.params;
   const published = [];
   const drafts = [];
 
@@ -251,12 +455,23 @@ export default function LandingScreen({ route, navigation }) {
   }
 
   useEffect(() => {
-    try {
-      getPolls(userData.id).then((pollList) => {
-        setPolls(pollList);
-      });
-    } catch (error) {}
-  }, []);
+    if (!mounted.current || refetch)
+      try {
+        getPolls(userData.id).then((pollList) => {
+          setPolls(pollList);
+        });
+      } catch (error) {}
+
+    if (refetch) setRefetch(false);
+    if (!mounted.current) mounted.current = true;
+  }, [refetch]);
+
+  // when the screen loads up, we are going to make sure to trigger a refresh
+  useEffect(() => {
+    navigation.addListener("focus", () => {
+      setRefetch(true);
+    });
+  });
 
   if (polls === undefined) return <LoadingScreen color="#D2042D" />;
 
@@ -306,6 +521,9 @@ export default function LandingScreen({ route, navigation }) {
                     pollData={item}
                     navigation={navigation}
                     userData={userData}
+                    setModalVisible={setModalVisible}
+                    setPollData={setPollData}
+                    selectedDraft={selectedDraft}
                   />
                 );
               }}
@@ -324,6 +542,12 @@ export default function LandingScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <DeleteMessageModal
+        modalVisible={modalVisible}
+        setModalVisible={setModalVisible}
+        pollData={pollData}
+        setRefetch={setRefetch}
+      />
     </SafeAreaView>
   );
 }
@@ -396,3 +620,5 @@ const styles = StyleSheet.create({
     transform: [{ scaleX: -1 }],
   },
 });
+
+export { ListEmpty };
