@@ -1,5 +1,6 @@
-// Import the functions you need from the SDKs you need
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
+import { AcceptedLabel } from "./components/PollTypeButton";
 import {
   // TS throws an error for this import, but it's actually okay (for now)
   getReactNativePersistence,
@@ -8,7 +9,6 @@ import {
   sendEmailVerification,
   User,
 } from "firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getFirestore,
   addDoc,
@@ -23,7 +23,6 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { AcceptedLabel } from "./components/PollTypeButton";
 
 let moment = require("moment-timezone");
 
