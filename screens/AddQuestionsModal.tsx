@@ -2,7 +2,7 @@ import GestureRecognizer from "react-native-swipe-gestures";
 import PollTypeButton from "../components/PollTypeButton";
 import Spacer from "../components/Spacer";
 import MultipleChoice from "../components/MultipleChoiceQuestion";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AddQuestionsProps } from "./CreatePollScreen";
 import {
   FREE_RESPONSE,
@@ -30,12 +30,15 @@ interface AddQuestionsModalProps {
 
 const getQuestionType = (
   currSelected: number,
-  pollData: AddQuestionsProps["pollData"]
+  pollData: AddQuestionsProps["pollData"],
+  questionText: string
 ) => {
   let questionTypeScreen: JSX.Element;
   switch (currSelected) {
     case MULTIPLE_CHOICE:
-      questionTypeScreen = <MultipleChoice pollData={pollData} />;
+      questionTypeScreen = (
+        <MultipleChoice pollData={pollData} questionText={questionText} />
+      );
       break;
     case FREE_RESPONSE:
       questionTypeScreen = <FreeResponse />;
@@ -87,8 +90,13 @@ export default function AddQuestionsModal({
   const [placeholder, setPlaceholder] = useState(
     "Tap here to add a question..."
   );
+  const [questionText, setQuestionText] = useState("");
 
-  const questionTypeScreen = getQuestionType(currSelected, pollData);
+  const questionTypeScreen = getQuestionType(
+    currSelected,
+    pollData,
+    questionText
+  );
 
   return (
     // allows us to swipe down and close our modal
@@ -120,6 +128,10 @@ export default function AddQuestionsModal({
                   placeholder={placeholder}
                   placeholderTextColor="#FFF"
                   style={styles.questionTextInput}
+                  value={questionText}
+                  onChangeText={(text) => {
+                    setQuestionText(text);
+                  }}
                   onFocus={() => {
                     setPlaceholder("");
                   }}

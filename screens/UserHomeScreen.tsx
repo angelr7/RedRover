@@ -1,16 +1,16 @@
-import { useEffect, useState } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import LoadingScreen from "../components/LoadingScreen";
-import { auth, getUserData } from "../firebase";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { SCREEN_WIDTH } from "../constants/dimensions";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import HomeFeed from "./HomeFeed";
 import ExploreFeed from "./ExploreFeed";
 import Settings from "./Settings";
-import { StatusBar } from "expo-status-bar";
 import CreatePolls from "./CreatePolls";
+import { useEffect, useState } from "react";
+import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { auth, getUserData } from "../firebase";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { SCREEN_WIDTH } from "../constants/dimensions";
+import { StatusBar } from "expo-status-bar";
 
 const BottomTabs = createBottomTabNavigator();
 
