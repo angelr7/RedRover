@@ -2,12 +2,11 @@ import GestureRecognizer from "react-native-swipe-gestures";
 import PollTypeButton from "../components/PollTypeButton";
 import Spacer from "../components/Spacer";
 import MultipleChoice from "../components/MultipleChoiceQuestion";
-import { useRef, useState } from "react";
-import { AddQuestionsProps } from "./CreatePollScreen";
+import React, { useRef, useState } from "react";
+import { AddQuestionsProps, Question } from "./CreatePollScreen";
 import {
   FREE_RESPONSE,
   IMAGE_SELECTION,
-  MIX_MATCH,
   MULTIPLE_CHOICE,
   NUMBER_ANSWER,
   POLL_QUESTION_TYPES,
@@ -21,36 +20,72 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import FreeResponse from "../components/FreeResponseQuestion";
+import Ranking from "../components/RankingQuestion";
+import NumberAnswer from "../components/NumberAnswerQuestion";
 
 interface AddQuestionsModalProps {
   pollData: AddQuestionsProps["pollData"];
   modalVisible: boolean;
   setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  pollID: string;
 }
 
 const getQuestionType = (
+  pollID: string,
   currSelected: number,
   pollData: AddQuestionsProps["pollData"],
-  questionText: string
+  questionText: string,
+  setQuestionText: React.Dispatch<React.SetStateAction<string>>,
+  setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>,
+  questions: Question[],
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>,
+  scrollViewRef: React.MutableRefObject<ScrollView>
 ) => {
   let questionTypeScreen: JSX.Element;
   switch (currSelected) {
     case MULTIPLE_CHOICE:
       questionTypeScreen = (
-        <MultipleChoice pollData={pollData} questionText={questionText} />
+        <MultipleChoice
+          pollID={pollID}
+          pollData={pollData}
+          questionText={questionText}
+          setQuestionText={setQuestionText}
+          setOuterModalVisible={setOuterModalVisible}
+          questions={questions}
+          setQuestions={setQuestions}
+        />
       );
       break;
     case FREE_RESPONSE:
-      questionTypeScreen = <FreeResponse />;
+      questionTypeScreen = (
+        <FreeResponse
+          pollID={pollID}
+          scrollViewRef={scrollViewRef}
+          questionText={questionText}
+          setQuestions={setQuestions}
+          setOuterModalVisible={setOuterModalVisible}
+          setQuestionText={setQuestionText}
+          questions={questions}
+        />
+      );
       break;
     case RANKING:
-      questionTypeScreen = <Ranking />;
+      questionTypeScreen = (
+        <Ranking
+          pollID={pollID}
+          questionText={questionText}
+          questions={questions}
+          setQuestionText={setQuestionText}
+          setQuestions={setQuestions}
+          setOuterModalVisible={setOuterModalVisible}
+        />
+      );
       break;
     case NUMBER_ANSWER:
-      questionTypeScreen = <NumberAnswer />;
-      break;
-    case MIX_MATCH:
-      questionTypeScreen = <MixAndMatch />;
+      questionTypeScreen = <NumberAnswer questionText={questionText} />;
       break;
     case IMAGE_SELECTION:
       questionTypeScreen = <ImageSelection />;
@@ -63,26 +98,17 @@ const getQuestionType = (
   return questionTypeScreen;
 };
 
-const FreeResponse = () => {
-  return <Text>Free Response</Text>;
-};
-const Ranking = () => {
-  return <View />;
-};
-const NumberAnswer = () => {
-  return <View />;
-};
-const MixAndMatch = () => {
-  return <View />;
-};
 const ImageSelection = () => {
   return <View />;
 };
 
 export default function AddQuestionsModal({
+  pollID,
   pollData,
+  questions,
   modalVisible,
   setModalVisible,
+  setQuestions,
 }: AddQuestionsModalProps) {
   const [currSelected, setCurrSelected] = useState<number | undefined>(
     undefined
@@ -91,11 +117,18 @@ export default function AddQuestionsModal({
     "Tap here to add a question..."
   );
   const [questionText, setQuestionText] = useState("");
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const questionTypeScreen = getQuestionType(
+    pollID,
     currSelected,
     pollData,
-    questionText
+    questionText,
+    setQuestionText,
+    setModalVisible,
+    questions,
+    setQuestions,
+    scrollViewRef
   );
 
   return (
@@ -118,8 +151,15 @@ export default function AddQuestionsModal({
             <ScrollView
               style={{ width: "100%", height: "100%" }}
               showsVerticalScrollIndicator={false}
+              ref={(ref) => (scrollViewRef.current = ref)}
             >
-              <Text style={{ fontSize: 17.5, color: "#D2042D" }}>
+              <Text
+                style={{
+                  fontSize: 17.5,
+                  color: "#D2042D",
+                  fontFamily: "Actor_400Regular",
+                }}
+              >
                 Question Text
               </Text>
               <Spacer width="100%" height={10} />
@@ -145,6 +185,7 @@ export default function AddQuestionsModal({
                 style={{
                   fontSize: 17.5,
                   color: "#D2042D",
+                  fontFamily: "Actor_400Regular",
                 }}
               >
                 What type of question will this be?
@@ -217,7 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: 7.5,
     flexDirection: "row",
     flexWrap: "wrap",
-    padding: 10,
+    padding: 20,
     justifyContent: "space-evenly",
   },
 });

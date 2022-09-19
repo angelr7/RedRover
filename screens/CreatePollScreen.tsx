@@ -9,7 +9,7 @@ import InitialPrompt from "./InitialPrompt";
 import AddQuestionsModal from "./AddQuestionsModal";
 import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK } from "../constants/localization";
-import { UserData } from "../firebase";
+import { Answer, deleteQuestion, getQuestions, UserData } from "../firebase";
 import { ListEmpty } from "./CreatePolls";
 import {
   SafeAreaView,
@@ -20,8 +20,13 @@ import {
   Text,
   View,
   ScrollView,
-  ImageBackground,
+  Platform,
+  StatusBar,
+  Pressable,
+  Image,
 } from "react-native";
+import { AcceptedLabel } from "../components/PollTypeButton";
+import FastImage from "../components/FastImage";
 
 type Screen = "Initial" | "Description" | "Loading" | "AddQuestions";
 interface LocalPageScreen {
@@ -47,8 +52,50 @@ interface AddQuestionsProps {
     published: boolean;
     title: string;
     questions: any[]; // "any" for now
+    id: string;
   };
   setScreen: React.Dispatch<React.SetStateAction<LocalPageScreen>>;
+}
+interface Question {
+  id: string;
+  questionType: AcceptedLabel;
+  questionText: string;
+  answers: Answer[];
+}
+interface QuestionContainerProps {
+  questions: Question[];
+  pollID: string;
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+}
+interface QuestionPreviewProps {
+  pollID: string;
+  question: Question;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+}
+interface QuestionPreviewBannerProps {
+  flipAnimationProgress: Animated.Value;
+  questionType: AcceptedLabel;
+}
+interface PollPreviewFlipAnimation {
+  flipped: boolean;
+  dateDisplayed: string;
+  userData: AddQuestionsProps["userData"];
+  pollData: AddQuestionsProps["pollData"];
+  flipAnimationProgress: Animated.Value;
+  fadeAnimationProgress: Animated.Value;
+  setTitle: React.Dispatch<React.SetStateAction<string>>;
+  setDisplayDate: React.Dispatch<React.SetStateAction<string>>;
+  setDescription: React.Dispatch<React.SetStateAction<string>>;
+  setButtonText: React.Dispatch<React.SetStateAction<string>>;
+  setSecondButtonVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+interface QuestionPreviewBacksideProps {
+  flipAnimationProgress: Animated.Value;
+  pollID: string;
+  question: Question;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
 }
 
 // gives a relative timestamp similar to iOS
@@ -88,29 +135,44 @@ const getRelativeTimestamp = (
   return postedMonthYear;
 };
 
-const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
-  const [title, setTitle] = useState(pollData.title);
-  const [description, setDescription] = useState(pollData.description);
-  const [buttonText, setButtonText] = useState("More");
-  const [secondButtonVisible, setSecondButtonVisible] = useState(false);
+const handleFlipAnimation = (
+  flipped: boolean,
+  flipAnimationProgress: Animated.Value,
+  setShowBackside: React.Dispatch<React.SetStateAction<boolean>>
+) => {
+  useEffect(() => {
+    if (flipped) {
+      setShowBackside(true);
+      Animated.timing(flipAnimationProgress, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else
+      Animated.timing(flipAnimationProgress, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowBackside(false);
+      });
+  }, [flipped]);
+};
+
+const handlePollPreviewFlip = ({
+  flipped,
+  fadeAnimationProgress,
+  setTitle,
+  setDisplayDate,
+  setDescription,
+  setButtonText,
+  setSecondButtonVisible,
+  userData,
+  pollData,
+  flipAnimationProgress,
+  dateDisplayed,
+}: PollPreviewFlipAnimation) => {
   const mounted = useRef(false);
-
-  const [flipped, setFlipped] = useState(false);
-  const flipAnimationProgress = useRef(new Animated.Value(0)).current;
-  const fadeAnimationProgress = useRef(new Animated.Value(1)).current;
-
-  // gives a different date depending on timezone of user
-  const currDate = moment().tz(Localization.timezone);
-
-  const datePosted = moment(parseInt(pollData.dateCreated)).tz(
-    Localization.timezone
-  );
-
-  const dateDisplayed = getRelativeTimestamp(currDate, datePosted);
-  const [displayDate, setDisplayDate] = useState(dateDisplayed);
-
-  const hasPreviewImage = pollData.previewImageURI !== "";
-
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
@@ -167,52 +229,86 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
       });
     }
   }, [flipped]);
+};
+
+const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
+  const [title, setTitle] = useState(pollData.title);
+  const [description, setDescription] = useState(pollData.description);
+  const [buttonText, setButtonText] = useState("More");
+  const [secondButtonVisible, setSecondButtonVisible] = useState(false);
+  const [flipped, setFlipped] = useState(false);
+  const flipAnimationProgress = useRef(new Animated.Value(0)).current;
+  const fadeAnimationProgress = useRef(new Animated.Value(1)).current;
+
+  // gives a different date depending on timezone of user
+  const currDate = moment().tz(Localization.timezone);
+
+  const datePosted = moment(parseInt(pollData.dateCreated)).tz(
+    Localization.timezone
+  );
+
+  const dateDisplayed = getRelativeTimestamp(currDate, datePosted);
+  const [displayDate, setDisplayDate] = useState(dateDisplayed);
+
+  const hasPreviewImage = pollData.previewImageURI !== "";
+
+  handlePollPreviewFlip({
+    flipped,
+    fadeAnimationProgress,
+    setTitle,
+    setDisplayDate,
+    setDescription,
+    setButtonText,
+    setSecondButtonVisible,
+    userData,
+    pollData,
+    flipAnimationProgress,
+    dateDisplayed,
+  });
 
   return (
     <Animated.View
-      style={{
-        width: "100%",
-        height: 250,
-        backgroundColor: "rgba(114, 47, 55, 0.5)",
-        borderRadius: 7.5,
-        flexDirection: "row",
-
-        transform: [
-          {
-            rotateY: flipAnimationProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["0deg", "180deg"],
-            }),
-          },
-          {
-            scaleX: flipAnimationProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, -1],
-            }),
-          },
-        ],
-      }}
+      style={[
+        styles.pollPreviewParent,
+        {
+          transform: [
+            {
+              rotateY: flipAnimationProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0deg", "180deg"],
+              }),
+            },
+            {
+              scaleX: flipAnimationProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, -1],
+              }),
+            },
+          ],
+        },
+      ]}
     >
       {hasPreviewImage && (
         // need to put a view over so the container actually looks flipped if we have an image
         <Animated.View
-          style={{
-            width: "100%",
-            height: "100%",
-            position: "absolute",
-            transform: [
-              {
-                scaleX: flipAnimationProgress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, -1],
-                }),
-              },
-            ],
-          }}
+          style={[
+            styles.imageContainerParent,
+            {
+              transform: [
+                {
+                  scaleX: flipAnimationProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, -1],
+                  }),
+                },
+              ],
+            },
+          ]}
         >
-          <ImageBackground
+          <FastImage
+            pollID={pollData.id}
             style={{ width: "100%", height: "100%" }}
-            source={{ uri: pollData.previewImageURI }}
+            uri={pollData.previewImageURI}
             resizeMode="cover"
             blurRadius={25}
             borderRadius={7.5}
@@ -229,38 +325,9 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
           },
         ]}
       >
-        <View
-          style={[
-            hasPreviewImage && {
-              alignSelf: "flex-start",
-              paddingLeft: 5,
-              paddingRight: 5,
-              paddingBottom: 5,
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              borderRadius: 5,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              {
-                fontFamily: "Actor_400Regular",
-                color: "#FFF",
-                fontSize: 25,
-              },
-            ]}
-          >
-            {title}
-          </Text>
-          <Text
-            style={{
-              color: "#FFF",
-              fontFamily: "Actor_400Regular",
-              fontSize: 12.5,
-            }}
-          >
-            {displayDate}
-          </Text>
+        <View style={[hasPreviewImage && styles.pollPreviewTitleContainer]}>
+          <Text style={[styles.pollPreviewTitle]}>{title}</Text>
+          <Text style={styles.displayDate}>{displayDate}</Text>
         </View>
         <Spacer width="100%" height={20} />
 
@@ -271,23 +338,10 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
               flex: 1,
               width: "100%",
             },
-            hasPreviewImage && {
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              borderRadius: 5,
-              padding: 5,
-              paddingTop: 0,
-            },
+            hasPreviewImage && styles.imageContainerTint,
           ]}
         >
-          <Text
-            style={{
-              fontFamily: "Actor_400Regular",
-              color: "#FFF",
-              fontSize: 15,
-              lineHeight: 25,
-              marginBottom: 5,
-            }}
-          >
+          <Text style={styles.pollPreviewDescription}>
             {description.trim() !== ""
               ? description
               : "No additional information."}
@@ -297,11 +351,8 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
       <Animated.View
         style={[
           styles.centerView,
+          styles.pollPreviewButtonContainer,
           {
-            height: "100%",
-            flex: 1,
-            padding: 20,
-            paddingLeft: 0,
             opacity: fadeAnimationProgress,
           },
         ]}
@@ -311,30 +362,12 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
             setFlipped(!flipped);
           }}
           style={[
-            {
-              width: "100%",
-              height: 50,
-              backgroundColor: "#FFF",
-              borderRadius: 5,
-            },
+            styles.pollPreviewTouchable,
             styles.centerView,
-            hasPreviewImage && {
-              shadowColor: "#000",
-              shadowOpacity: 1,
-              shadowOffset: { width: 1, height: 1 },
-              shadowRadius: 8,
-            },
+            hasPreviewImage && styles.pollPreviewTouchableShadow,
           ]}
         >
-          <Text
-            style={{
-              fontFamily: "Actor_400Regular",
-              fontSize: 15,
-              color: "#D2042D",
-            }}
-          >
-            {buttonText}
-          </Text>
+          <Text style={styles.pollPreviewButtonText}>{buttonText}</Text>
         </TouchableOpacity>
         {secondButtonVisible && (
           <>
@@ -349,30 +382,12 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
                 });
               }}
               style={[
-                {
-                  width: "100%",
-                  height: 50,
-                  backgroundColor: "#FFF",
-                  borderRadius: 5,
-                },
+                styles.pollPreviewTouchable,
                 styles.centerView,
-                hasPreviewImage && {
-                  shadowColor: "#000",
-                  shadowOpacity: 1,
-                  shadowOffset: { width: 1, height: 1 },
-                  shadowRadius: 8,
-                },
+                hasPreviewImage && styles.pollPreviewTouchableShadow,
               ]}
             >
-              <Text
-                style={{
-                  fontFamily: "Actor_400Regular",
-                  fontSize: 15,
-                  color: "#D2042D",
-                }}
-              >
-                {"Edit"}
-              </Text>
+              <Text style={styles.pollPreviewButtonText}>{"Edit"}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -383,29 +398,229 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
 
 const NoPollQuestions = () => {
   return (
-    <View
+    <View style={[styles.centerView, styles.pollQuestionContainer]}>
+      <ListEmpty />
+    </View>
+  );
+};
+
+const QuestionPreviewBackside = ({
+  flipAnimationProgress,
+  pollID,
+  question,
+  questions,
+  setQuestions,
+}: QuestionPreviewBacksideProps) => {
+  return (
+    <Animated.View
       style={[
         styles.centerView,
+        styles.questionPreviewBackside,
+        { opacity: flipAnimationProgress },
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.centerView,
+          {
+            width: 75,
+            transform: [
+              {
+                scaleY: flipAnimationProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, -1],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[styles.questionPreviewButtonContainer, styles.centerView]}
+        >
+          <Text style={styles.questionPreviewButtonText}>Edit</Text>
+        </TouchableOpacity>
+        <Spacer width="100%" height={10} />
+        <TouchableOpacity
+          style={[styles.questionPreviewButtonContainer, styles.centerView]}
+          onPress={async () => {
+            await deleteQuestion(pollID, question.id);
+            setQuestions(questions.filter((q) => q.id !== question.id));
+          }}
+        >
+          <Text style={styles.questionPreviewButtonText}>Delete</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
+};
+
+const QuestionPreviewBanner = ({
+  flipAnimationProgress,
+  questionType,
+}: QuestionPreviewBannerProps) => {
+  return (
+    <View style={[styles.questionPreviewBanner, styles.centerView]}>
+      <View style={styles.bannerContainer1}>
+        <View style={[styles.bannerContainer2, styles.centerView]}>
+          <Animated.Text
+            style={[
+              styles.bannerText,
+              {
+                transform: [
+                  {
+                    scaleY: flipAnimationProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, -1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {questionType}
+          </Animated.Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const QuestionPreview = ({
+  pollID,
+  question,
+  questions,
+  setQuestions,
+}: QuestionPreviewProps) => {
+  const [flipped, setFlipped] = useState(false);
+  const [showBackside, setShowBackside] = useState(false);
+  const flipAnimationProgress = useRef(new Animated.Value(0)).current;
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+  handleFlipAnimation(flipped, flipAnimationProgress, setShowBackside);
+
+  return (
+    <AnimatedPressable
+      onPress={() => {
+        setFlipped(!flipped);
+      }}
+      style={[
+        styles.questionPreviewContainer,
+        styles.centerView,
         {
-          width: "100%",
-          height: 125,
-          borderRadius: 7.5,
-          backgroundColor: "rgba(114, 47, 55, 0.5)",
+          transform: [
+            {
+              rotateX: flipAnimationProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0deg", "180deg"],
+              }),
+            },
+          ],
         },
       ]}
     >
-      <ListEmpty />
+      <Animated.Text
+        style={[
+          styles.questionPreviewText,
+          {
+            opacity: flipAnimationProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0],
+            }),
+          },
+        ]}
+      >
+        {question.questionText}
+      </Animated.Text>
+      {showBackside && (
+        <QuestionPreviewBackside
+          pollID={pollID}
+          flipAnimationProgress={flipAnimationProgress}
+          question={question}
+          questions={questions}
+          setQuestions={setQuestions}
+        />
+      )}
+      <QuestionPreviewBanner
+        flipAnimationProgress={flipAnimationProgress}
+        questionType={question.questionType}
+      />
+    </AnimatedPressable>
+  );
+};
+
+const QuestionContainer = ({
+  questions,
+  pollID,
+  setQuestions,
+}: QuestionContainerProps) => {
+  // we need to create a component for this to add a key prop to it
+  const QuestionPreviewFragment = ({
+    index,
+    question,
+  }: {
+    index: number;
+    question: Question;
+  }) => (
+    <>
+      <QuestionPreview
+        key={index}
+        pollID={pollID}
+        question={question}
+        questions={questions}
+        setQuestions={setQuestions}
+      />
+      {index !== questions.length - 1 && <Spacer width="100%" height={10} />}
+    </>
+  );
+
+  return (
+    <View
+      style={[
+        styles.centerView,
+        styles.pollQuestionContainer,
+        styles.flexRowWrap,
+      ]}
+    >
+      {questions.map((question, index) => {
+        return (
+          <QuestionPreviewFragment
+            key={index}
+            question={question}
+            index={index}
+          />
+        );
+      })}
+    </View>
+  );
+};
+
+const Loading = () => {
+  return (
+    <View style={[styles.centerView, styles.pollQuestionContainer]}>
+      <LoadingScreen color="#FFF" noParentStyle={true} />
     </View>
   );
 };
 
 const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>(undefined);
+  const [pollID, setPollID] = useState<string>(undefined);
+
+  const fetchingQuestions = questions === undefined || pollID === undefined;
+
+  useEffect(() => {
+    getQuestions(pollData.author, pollData.title).then((result) => {
+      setPollID(result.pollID);
+      setQuestions(result.questions ?? []);
+    });
+  }, []);
+
   return (
     <ScrollView
-      style={[
-        { width: "100%", height: "100%", paddingLeft: 10, paddingRight: 10 },
-      ]}
+      style={styles.addQuestionsScrollView}
+      showsVerticalScrollIndicator={false}
     >
       <Spacer width="100%" height={10} />
       <PollPreview
@@ -414,18 +629,20 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
         setScreen={setScreen}
       />
       <Spacer width="100%" height={20} />
-      <Text
-        style={{
-          fontFamily: "Actor_400Regular",
-          color: "#FFF",
-          fontSize: 30,
-          textAlign: "center",
-        }}
-      >
-        Questions
-      </Text>
+      <Text style={styles.addQuestionsModalLabel}>Questions</Text>
       <Spacer width="100%" height={20} />
-      {pollData.questions.length === 0 ? <NoPollQuestions /> : <View />}
+      {(() => {
+        if (fetchingQuestions) return <Loading />;
+        else if (questions.length === 0) return <NoPollQuestions />;
+        else
+          return (
+            <QuestionContainer
+              questions={questions}
+              pollID={pollID}
+              setQuestions={setQuestions}
+            />
+          );
+      })()}
       <Spacer width="100%" height={20} />
       <TouchableOpacity
         style={{ alignSelf: "center" }}
@@ -436,9 +653,12 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
         <Ionicons name="add-circle" style={{ color: "#FFF", fontSize: 57.5 }} />
       </TouchableOpacity>
       <AddQuestionsModal
+        pollID={pollID}
         pollData={pollData}
         modalVisible={modalVisible}
         setModalVisible={setModalVisible}
+        questions={questions}
+        setQuestions={setQuestions}
       />
     </ScrollView>
   );
@@ -551,6 +771,150 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  addQuestionsScrollView: {
+    width: "100%",
+    height: "100%",
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  addQuestionsModalLabel: {
+    fontFamily: "Actor_400Regular",
+    color: "#FFF",
+    fontSize: 30,
+    textAlign: "center",
+  },
+  pollQuestionContainer: {
+    width: "100%",
+    borderRadius: 7.5,
+    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    padding: 10,
+  },
+  flexRowWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-evenly",
+    flexWrap: "wrap",
+  },
+  questionPreviewContainer: {
+    width: "100%",
+    height: 100,
+    backgroundColor: "#FFF",
+    borderRadius: 5,
+    padding: 10,
+  },
+  questionPreviewText: {
+    color: "#D2042D",
+    fontFamily: "Actor_400Regular",
+  },
+  questionPreviewBanner: {
+    position: "absolute",
+    width: 40,
+    height: 40,
+    left: 0,
+    top: 0,
+  },
+  bannerContainer1: {
+    width: "200%",
+    height: 17.5,
+    backgroundColor: "#D2042D",
+    transform: [{ rotate: "-45deg" }],
+    borderTopRightRadius: 20,
+    borderTopLeftRadius: 20,
+  },
+  bannerContainer2: {
+    width: "100%",
+    flex: 1,
+    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    borderTopRightRadius: 20,
+    borderTopLeftRadius: 20,
+  },
+  bannerText: {
+    color: "#FFF",
+    fontSize: 7.5,
+    fontFamily: "Actor_400Regular",
+  },
+  questionPreviewBackside: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
+  questionPreviewButtonContainer: {
+    width: "100%",
+    padding: 5,
+    borderWidth: 1,
+    borderColor: "#D2042D",
+    borderRadius: 5,
+  },
+  questionPreviewButtonText: {
+    color: "#D2042D",
+  },
+  pollPreviewParent: {
+    width: "100%",
+    height: 250,
+    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    borderRadius: 7.5,
+    flexDirection: "row",
+  },
+  imageContainerParent: {
+    width: "100%",
+    height: "100%",
+    position: "absolute",
+  },
+  pollPreviewTitleContainer: {
+    alignSelf: "flex-start",
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingBottom: 5,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 5,
+  },
+  pollPreviewTitle: {
+    fontFamily: "Actor_400Regular",
+    color: "#FFF",
+    fontSize: 25,
+  },
+  displayDate: {
+    fontFamily: "Actor_400Regular",
+    color: "#FFF",
+    fontSize: 15,
+  },
+  imageContainerTint: {
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 5,
+    padding: 5,
+    paddingTop: 0,
+  },
+  pollPreviewDescription: {
+    fontFamily: "Actor_400Regular",
+    color: "#FFF",
+    fontSize: 15,
+    lineHeight: 25,
+    marginBottom: 5,
+  },
+  pollPreviewButtonContainer: {
+    height: "100%",
+    flex: 1,
+    padding: 20,
+    paddingLeft: 0,
+  },
+  pollPreviewTouchable: {
+    width: "100%",
+    height: 50,
+    backgroundColor: "#FFF",
+    borderRadius: 5,
+  },
+  pollPreviewTouchableShadow: {
+    shadowColor: "#000",
+    shadowOpacity: 1,
+    shadowOffset: { width: 1, height: 1 },
+    shadowRadius: 8,
+  },
+  pollPreviewButtonText: {
+    fontFamily: "Actor_400Regular",
+    fontSize: 15,
+    color: "#D2042D",
+  },
 });
 
-export type { LocalPageScreen, AddQuestionsProps };
+export type { LocalPageScreen, AddQuestionsProps, Question };

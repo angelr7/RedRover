@@ -19,6 +19,8 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { LocalPageScreen } from "./CreatePollScreen";
 
@@ -184,15 +186,15 @@ const handleDescriptionAnimations = (
 };
 
 const handleShakeAnimation = (
-  mainDescription,
-  descriptionShakeProgress,
-  scrollViewRef,
-  title,
-  additionalInfo,
-  previewImageURI,
-  description,
-  userData,
-  setScreen
+  mainDescription: string,
+  descriptionShakeProgress: Animated.Value,
+  scrollViewRef: React.MutableRefObject<ScrollView>,
+  title: string,
+  additionalInfo: string,
+  previewImageURI: string,
+  description: string,
+  userData: UserData,
+  setScreen: React.Dispatch<React.SetStateAction<LocalPageScreen>>
 ) => {
   if (mainDescription === "") {
     Animated.loop(
@@ -269,12 +271,9 @@ const EditablePollTitle = ({
     <Animated.View
       style={[
         styles.centerView,
+        styles.editableTitleContainer,
         {
-          flexDirection: "row",
-          alignSelf: "center",
-          marginTop: 20,
           opacity: fadeInAnimationProgress,
-          maxWidth: "90%",
         },
       ]}
     >
@@ -834,6 +833,7 @@ export default function SetDescriptionInformation({
 
   return (
     <ScrollView
+      style={styles.androidSafeView}
       ref={(ref) => (scrollViewRef.current = ref)}
       scrollEventThrottle={20}
       showsVerticalScrollIndicator={false}
@@ -899,6 +899,11 @@ export default function SetDescriptionInformation({
           setMainDescription,
         }}
       />
+
+      {/* On Android devices, the StatusBar throws off the ScrollView height */}
+      {Platform.OS === "android" && (
+        <Spacer width="100%" height={StatusBar.currentHeight} />
+      )}
     </ScrollView>
   );
 }
@@ -1026,5 +1031,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 7.5,
     padding: 7.5,
+  },
+  androidSafeView: {
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  editableTitleContainer: {
+    flexDirection: "row",
+    alignSelf: "center",
+    marginTop: 20,
+    maxWidth: "90%",
+    paddingLeft: Platform.OS === "android" ? 5 : 0,
+    paddingRight: Platform.OS === "android" ? 5 : 0,
   },
 });

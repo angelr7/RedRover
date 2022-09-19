@@ -1,3 +1,10 @@
+import Spacer from "../components/Spacer";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import LoadingScreen from "../components/LoadingScreen";
+import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useEffect, useRef, useState } from "react";
+import { getPolls, removePoll } from "../firebase";
 import {
   StyleSheet,
   Text,
@@ -7,16 +14,9 @@ import {
   ScrollView,
   Pressable,
   Animated,
-  Image,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import React, { useEffect, useRef, useState } from "react";
-import { getPolls, removePoll } from "../firebase";
-import Spacer from "../components/Spacer";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import LoadingScreen from "../components/LoadingScreen";
+import FastImage from "../components/FastImage";
 
 interface PollData {
   title: string;
@@ -26,6 +26,7 @@ interface PollData {
   author: string;
   dateCreated: string;
   published: boolean;
+  id: string;
 }
 interface PollPreviewProps {
   pollData: PollData;
@@ -157,7 +158,7 @@ const PollPreview = ({
             },
           ]}
         >
-          <Image
+          <FastImage
             style={[
               {
                 position: "absolute",
@@ -166,7 +167,8 @@ const PollPreview = ({
                 borderRadius: 5,
               },
             ]}
-            source={{ uri: pollData.previewImageURI }}
+            pollID={pollData.id}
+            uri={pollData.previewImageURI}
           />
           <View
             style={[

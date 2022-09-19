@@ -1,13 +1,12 @@
 // TODO: add question creation flow to backend + frontend
-
 import * as Haptics from "expo-haptics";
 import Spacer from "../components/Spacer";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import React, { ReactText, useEffect, useRef, useState } from "react";
-import { AddQuestionsProps } from "../screens/CreatePollScreen";
+import React, { useEffect, useRef, useState } from "react";
+import { AddQuestionsProps, Question } from "../screens/CreatePollScreen";
 import { ListEmpty } from "../screens/CreatePolls";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
-import { Answer } from "../firebase";
+import { SCREEN_HEIGHT } from "../constants/dimensions";
+import { Answer, createQuestion } from "../firebase";
 import {
   TextInput,
   Text,
@@ -18,17 +17,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  ScrollView,
+  Platform,
 } from "react-native";
-import Toast from "react-native-root-toast";
+import LoadingScreen from "./LoadingScreen";
 
 interface MultipleChoiceProps {
+  pollID: string;
   pollData: AddQuestionsProps["pollData"];
   questionText: string;
+  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
+  setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
 }
 interface AnswerPreviewProps {
   answerData: Answer;
-  includeSpacer: boolean;
   index: number;
   setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
   answers: any[];
@@ -138,7 +141,6 @@ const createNewAnswer = (
     (answer) => answer.answerText === answerInput
   );
   if (filtered.length === 0) {
-    const empty = answers.length === 0;
     setAnswers(
       answers.concat([
         {
@@ -226,7 +228,6 @@ const AnswerPreviewButtonContainer = ({
 
 const AnswerPreview = ({
   answerData,
-  includeSpacer,
   index,
   setModalVisible,
   answers,
@@ -285,7 +286,6 @@ const AnswerPreview = ({
           />
         )}
       </AnimatedPressable>
-      {includeSpacer && <Spacer width={10} height="100%" />}
     </>
   );
 };
@@ -320,7 +320,6 @@ const AnswerPreviewContainer = ({
                 <AnswerPreview
                   key={index}
                   answerData={answer}
-                  includeSpacer={index !== answers.length - 1}
                   index={index}
                   setModalVisible={setModalVisible}
                   answers={answers}
@@ -349,10 +348,34 @@ const AddAnswerModal = ({
   const [freeResponse, setFreeResponse] = useState(undefined);
   const [answerInputFocused, setAnswerInputFocused] = useState(false);
 
+  let placeholder: string;
+  if (Platform.OS === "ios")
+    placeholder = answerInputFocused ? "" : "Enter your answer here...";
+  else
+    placeholder =
+      answerInputFocused || answerInput !== ""
+        ? ""
+        : "Enter your answer here...";
+
   const closeAndReset = () => {
     setModalVisible(false);
     setFreeResponse(undefined);
     setAnswerInput("");
+  };
+
+  const handleSubmit = () => {
+    if (selectedAnswer === undefined)
+      createNewAnswer(freeResponse, answerInput, answers, setAnswers);
+    else
+      editAnswer(
+        selectedAnswer,
+        freeResponse,
+        answerInput,
+        answers,
+        setAnswers
+      );
+
+    closeAndReset();
   };
 
   return (
@@ -440,7 +463,7 @@ const AddAnswerModal = ({
               setAnswerInput(text);
             }}
             style={styles.answerTextInput}
-            placeholder={answerInputFocused ? "" : "Enter your answer here..."}
+            placeholder={placeholder}
             placeholderTextColor={"#D2042D"}
           />
           <Spacer width="100%" height={10} />
@@ -453,25 +476,7 @@ const AddAnswerModal = ({
             </TouchableOpacity>
             {answerInput !== "" && freeResponse !== undefined && (
               <TouchableOpacity
-                onPress={() => {
-                  if (selectedAnswer === undefined) {
-                    createNewAnswer(
-                      freeResponse,
-                      answerInput,
-                      answers,
-                      setAnswers
-                    );
-                  } else
-                    editAnswer(
-                      selectedAnswer,
-                      freeResponse,
-                      answerInput,
-                      answers,
-                      setAnswers
-                    );
-
-                  closeAndReset();
-                }}
+                onPress={handleSubmit}
                 style={[
                   styles.variantButtonContainer,
                   {
@@ -490,8 +495,13 @@ const AddAnswerModal = ({
 };
 
 export default function MultipleChoice({
+  pollID,
   pollData,
   questionText,
+  setQuestionText,
+  setOuterModalVisible,
+  questions,
+  setQuestions,
 }: MultipleChoiceProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [answerInput, setAnswerInput] = useState("");
@@ -503,6 +513,8 @@ export default function MultipleChoice({
   const canSubmit = answers.length > 0 && questionText !== "";
 
   handleAnimations(riseAnimationProgress, answerInput);
+
+  if (pollID === undefined) return <LoadingScreen color="#D2042D" />;
 
   return (
     <>
@@ -526,7 +538,20 @@ export default function MultipleChoice({
       </TouchableOpacity>
       <Spacer width="100%" height={20} />
       {canSubmit && (
-        <TouchableOpacity style={styles.submitButtonContainer}>
+        <TouchableOpacity
+          style={styles.submitButtonContainer}
+          onPress={async () => {
+            const questionData = await createQuestion(
+              pollID,
+              "Multiple Choice",
+              questionText,
+              answers
+            );
+            setQuestions(questions.concat([questionData]));
+            setOuterModalVisible(false);
+            setQuestionText("");
+          }}
+        >
           <View style={[styles.submitButtonContainer2, styles.centerView]}>
             <Text style={styles.submitButtonText}>Submit</Text>
           </View>

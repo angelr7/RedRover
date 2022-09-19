@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Animated, Easing } from "react-native";
 
-export default function LoadingScreen({ color }: { color?: string }) {
+export default function LoadingScreen({
+  color,
+  noParentStyle,
+}: {
+  color?: string;
+  noParentStyle?: boolean;
+}) {
   const [spinVal, setSpinVal] = useState(1);
   const spinAnimationProgress = useRef(new Animated.Value(0)).current;
   const animationStyle = {
@@ -30,7 +36,7 @@ export default function LoadingScreen({ color }: { color?: string }) {
   return (
     <View
       style={[
-        {
+        !noParentStyle && {
           width: "100%",
           height: "100%",
           display: "flex",
