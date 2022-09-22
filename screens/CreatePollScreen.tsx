@@ -1,5 +1,6 @@
 // TODO: have some front-end checking to make sure that polls don't have duplicate names
 import * as Localization from "expo-localization";
+import FastImage from "../components/FastImage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import LoadingScreen from "../components/LoadingScreen";
 import moment from "moment-timezone";
@@ -11,6 +12,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK } from "../constants/localization";
 import { Answer, deleteQuestion, getQuestions, UserData } from "../firebase";
 import { ListEmpty } from "./CreatePolls";
+import { AcceptedLabel } from "../components/PollTypeButton";
 import {
   SafeAreaView,
   StyleSheet,
@@ -23,10 +25,9 @@ import {
   Platform,
   StatusBar,
   Pressable,
-  Image,
+  Modal,
 } from "react-native";
-import { AcceptedLabel } from "../components/PollTypeButton";
-import FastImage from "../components/FastImage";
+import GestureRecognizer from "react-native-swipe-gestures";
 
 type Screen = "Initial" | "Description" | "Loading" | "AddQuestions";
 interface LocalPageScreen {
@@ -66,12 +67,14 @@ interface QuestionContainerProps {
   questions: Question[];
   pollID: string;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setCurrQuestion: React.Dispatch<React.SetStateAction<Question>>;
 }
 interface QuestionPreviewProps {
   pollID: string;
   question: Question;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setCurrQuestion: React.Dispatch<React.SetStateAction<Question>>;
 }
 interface QuestionPreviewBannerProps {
   flipAnimationProgress: Animated.Value;
@@ -96,6 +99,7 @@ interface QuestionPreviewBacksideProps {
   question: Question;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setCurrQuestion: React.Dispatch<React.SetStateAction<Question>>;
 }
 
 // gives a relative timestamp similar to iOS
@@ -410,6 +414,7 @@ const QuestionPreviewBackside = ({
   question,
   questions,
   setQuestions,
+  setCurrQuestion,
 }: QuestionPreviewBacksideProps) => {
   return (
     <Animated.View
@@ -436,6 +441,9 @@ const QuestionPreviewBackside = ({
         ]}
       >
         <TouchableOpacity
+          onPress={() => {
+            setCurrQuestion(question);
+          }}
           style={[styles.questionPreviewButtonContainer, styles.centerView]}
         >
           <Text style={styles.questionPreviewButtonText}>Edit</Text>
@@ -491,6 +499,7 @@ const QuestionPreview = ({
   question,
   questions,
   setQuestions,
+  setCurrQuestion,
 }: QuestionPreviewProps) => {
   const [flipped, setFlipped] = useState(false);
   const [showBackside, setShowBackside] = useState(false);
@@ -539,6 +548,7 @@ const QuestionPreview = ({
           question={question}
           questions={questions}
           setQuestions={setQuestions}
+          setCurrQuestion={setCurrQuestion}
         />
       )}
       <QuestionPreviewBanner
@@ -553,6 +563,7 @@ const QuestionContainer = ({
   questions,
   pollID,
   setQuestions,
+  setCurrQuestion,
 }: QuestionContainerProps) => {
   // we need to create a component for this to add a key prop to it
   const QuestionPreviewFragment = ({
@@ -569,6 +580,7 @@ const QuestionContainer = ({
         question={question}
         questions={questions}
         setQuestions={setQuestions}
+        setCurrQuestion={setCurrQuestion}
       />
       {index !== questions.length - 1 && <Spacer width="100%" height={10} />}
     </>
@@ -607,7 +619,8 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [questions, setQuestions] = useState<Question[]>(undefined);
   const [pollID, setPollID] = useState<string>(undefined);
-
+  const [currQuestion, setCurrQuestion] = useState<Question>(undefined);
+  const scrollViewRef = useRef<ScrollView>(null);
   const fetchingQuestions = questions === undefined || pollID === undefined;
 
   useEffect(() => {
@@ -617,10 +630,16 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (currQuestion === undefined) setModalVisible(false);
+    else setModalVisible(true);
+  }, [currQuestion]);
+
   return (
     <ScrollView
       style={styles.addQuestionsScrollView}
       showsVerticalScrollIndicator={false}
+      ref={(ref) => (scrollViewRef.current = ref)}
     >
       <Spacer width="100%" height={10} />
       <PollPreview
@@ -640,6 +659,7 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
               questions={questions}
               pollID={pollID}
               setQuestions={setQuestions}
+              setCurrQuestion={setCurrQuestion}
             />
           );
       })()}
@@ -647,6 +667,7 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
       <TouchableOpacity
         style={{ alignSelf: "center" }}
         onPress={() => {
+          scrollViewRef.current.scrollToEnd({ animated: true });
           setModalVisible(true);
         }}
       >
@@ -659,6 +680,7 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
         setModalVisible={setModalVisible}
         questions={questions}
         setQuestions={setQuestions}
+        currQuestion={currQuestion}
       />
     </ScrollView>
   );
@@ -913,6 +935,34 @@ const styles = StyleSheet.create({
   pollPreviewButtonText: {
     fontFamily: "Actor_400Regular",
     fontSize: 15,
+    color: "#D2042D",
+  },
+  closeButtonStyle: {
+    fontSize: 25,
+    color: "#D2042D",
+  },
+  editQuestionHeading: {
+    fontFamily: "Actor_400Regular",
+    fontSize: 35,
+    color: "#D2042D",
+    marginTop: 10,
+    alignSelf: "center",
+  },
+  outerRed: {
+    width: "100%",
+    borderRadius: 7.5,
+    backgroundColor: "#D2042D",
+  },
+  innerRed: {
+    width: "100%",
+    flex: 1,
+    borderRadius: 7.5,
+    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    padding: 20,
+  },
+  editModalHeading: {
+    fontFamily: "Actor_400Regular",
+    fontSize: 17.5,
     color: "#D2042D",
   },
 });

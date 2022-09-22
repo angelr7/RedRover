@@ -18,6 +18,7 @@ import {
   StyleSheet,
   Pressable,
   Platform,
+  ScrollView,
 } from "react-native";
 import LoadingScreen from "./LoadingScreen";
 
@@ -29,6 +30,7 @@ interface MultipleChoiceProps {
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  scrollViewRef: React.MutableRefObject<ScrollView>;
 }
 interface AnswerPreviewProps {
   answerData: Answer;
@@ -502,6 +504,7 @@ export default function MultipleChoice({
   setOuterModalVisible,
   questions,
   setQuestions,
+  scrollViewRef,
 }: MultipleChoiceProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [answerInput, setAnswerInput] = useState("");
@@ -530,6 +533,7 @@ export default function MultipleChoice({
       <TouchableOpacity
         style={{ alignSelf: "center" }}
         onPress={() => {
+          scrollViewRef.current.scrollToEnd({ animated: true });
           setModalVisible(true);
         }}
       >
@@ -568,6 +572,7 @@ export default function MultipleChoice({
           setModalVisible,
           setAnswers,
           selectedAnswer,
+          scrollViewRef,
         }}
       />
     </>
@@ -653,6 +658,7 @@ const styles = StyleSheet.create({
     padding: 5,
     borderColor: "#FFF",
     borderWidth: 1,
+    marginBottom: 20,
   },
   answerPreviewType: {
     alignSelf: "center",
@@ -684,7 +690,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(114, 47, 55, 0.5)",
     borderRadius: 7.5,
-    padding: 20,
+    padding: 10,
   },
   answerPreviewMask: {
     position: "absolute",

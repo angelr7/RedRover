@@ -43,7 +43,13 @@ interface PollData {
 
 type MCAnswerVariant = "Free Response" | "Fixed Response";
 type RankingAnswerVariant = "Text Ranking" | "Image Ranking";
-type AnswerVariant = MCAnswerVariant | RankingAnswerVariant;
+type NumberAnswerVariant = "Percentage" | "Number";
+type ImageSelectionVariant = "undefined";
+type AnswerVariant =
+  | MCAnswerVariant
+  | RankingAnswerVariant
+  | NumberAnswerVariant
+  | ImageSelectionVariant;
 interface Answer {
   answerType: AcceptedLabel;
   answerVariant: AnswerVariant;
@@ -222,7 +228,8 @@ const createQuestion = async (
       questionType,
       questionText,
     };
-    if (questionType !== "Ranking") toAdd.answers = answers;
+    if (questionType !== "Ranking" && questionType !== "Image Selection")
+      toAdd.answers = answers;
 
     // get question ref and ID
     // if the question type isn't Ranking, we upload the entire answer here
@@ -233,7 +240,7 @@ const createQuestion = async (
     const questionID = questionRef.id;
 
     // if we are uploading a ranking question, we must first upload the images and then update the question
-    if (questionType === "Ranking") {
+    if (questionType === "Ranking" || questionType === "Image Selection") {
       answers = await uploadAnswerImages(pollID, questionID, answers);
       await updateDoc(questionRef, { answers });
     }

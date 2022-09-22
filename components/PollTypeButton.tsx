@@ -2,7 +2,7 @@ import { StyleSheet, TouchableOpacity, Text, View } from "react-native";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Spacer from "./Spacer";
-import { IMAGE_SELECTION, MIX_MATCH } from "../constants/polls";
+import { IMAGE_SELECTION } from "../constants/polls";
 
 type AcceptedIcon =
   | "tasks"
@@ -49,8 +49,7 @@ export default function PollTypeButton({
       style={[
         styles.iconButtonStyle,
         {
-          marginBottom:
-            index !== MIX_MATCH && index !== IMAGE_SELECTION ? 10 : 0,
+          marginBottom: index !== IMAGE_SELECTION ? 10 : 0,
         },
         selected && { backgroundColor: "#FFF" },
         containerStyle,

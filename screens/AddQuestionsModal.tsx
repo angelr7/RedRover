@@ -1,11 +1,16 @@
+import FreeResponse from "../components/FreeResponseQuestion";
+import Ranking from "../components/RankingQuestion";
+import NumberAnswer from "../components/NumberAnswerQuestion";
+import ImageSelection from "../components/ImageSelectionQuestion";
 import GestureRecognizer from "react-native-swipe-gestures";
 import PollTypeButton from "../components/PollTypeButton";
 import Spacer from "../components/Spacer";
 import MultipleChoice from "../components/MultipleChoiceQuestion";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AddQuestionsProps, Question } from "./CreatePollScreen";
 import {
   FREE_RESPONSE,
+  getIDFromQuestionType,
   IMAGE_SELECTION,
   MULTIPLE_CHOICE,
   NUMBER_ANSWER,
@@ -20,9 +25,6 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import FreeResponse from "../components/FreeResponseQuestion";
-import Ranking from "../components/RankingQuestion";
-import NumberAnswer from "../components/NumberAnswerQuestion";
 
 interface AddQuestionsModalProps {
   pollData: AddQuestionsProps["pollData"];
@@ -31,6 +33,7 @@ interface AddQuestionsModalProps {
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   pollID: string;
+  currQuestion: Question;
 }
 
 const getQuestionType = (
@@ -56,6 +59,7 @@ const getQuestionType = (
           setOuterModalVisible={setOuterModalVisible}
           questions={questions}
           setQuestions={setQuestions}
+          scrollViewRef={scrollViewRef}
         />
       );
       break;
@@ -85,10 +89,30 @@ const getQuestionType = (
       );
       break;
     case NUMBER_ANSWER:
-      questionTypeScreen = <NumberAnswer questionText={questionText} />;
+      questionTypeScreen = (
+        <NumberAnswer
+          pollID={pollID}
+          questionText={questionText}
+          scrollViewRef={scrollViewRef}
+          questions={questions}
+          setQuestionText={setQuestionText}
+          setQuestions={setQuestions}
+          setOuterModalVisible={setOuterModalVisible}
+        />
+      );
       break;
     case IMAGE_SELECTION:
-      questionTypeScreen = <ImageSelection />;
+      questionTypeScreen = (
+        <ImageSelection
+          pollID={pollID}
+          scrollViewRef={scrollViewRef}
+          questionText={questionText}
+          questions={questions}
+          setQuestionText={setQuestionText}
+          setQuestions={setQuestions}
+          setOuterModalVisible={setOuterModalVisible}
+        />
+      );
       break;
     default:
       questionTypeScreen = <View />;
@@ -98,10 +122,6 @@ const getQuestionType = (
   return questionTypeScreen;
 };
 
-const ImageSelection = () => {
-  return <View />;
-};
-
 export default function AddQuestionsModal({
   pollID,
   pollData,
@@ -109,6 +129,7 @@ export default function AddQuestionsModal({
   modalVisible,
   setModalVisible,
   setQuestions,
+  currQuestion,
 }: AddQuestionsModalProps) {
   const [currSelected, setCurrSelected] = useState<number | undefined>(
     undefined
@@ -117,7 +138,9 @@ export default function AddQuestionsModal({
     "Tap here to add a question..."
   );
   const [questionText, setQuestionText] = useState("");
+  const [scrolling, setScrolling] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const editing = currQuestion !== undefined;
 
   const questionTypeScreen = getQuestionType(
     pollID,
@@ -131,12 +154,19 @@ export default function AddQuestionsModal({
     scrollViewRef
   );
 
+  useEffect(() => {
+    if (editing) {
+      setCurrSelected(getIDFromQuestionType(currQuestion.questionType));
+      setQuestionText(currQuestion.questionText);
+    }
+  }, [editing]);
+
   return (
     // allows us to swipe down and close our modal
     // TODO: update gesture handler to ask users to save changes first
     <GestureRecognizer
       onSwipeDown={() => {
-        setModalVisible(false);
+        if (!scrolling) setModalVisible(false);
       }}
     >
       <Modal
@@ -145,13 +175,22 @@ export default function AddQuestionsModal({
         animationType="slide"
       >
         <View style={styles.outerModalContainer}>
-          <Text style={styles.modalTitle}>Add Question</Text>
+          <Text style={styles.modalTitle}>
+            {editing ? "Edit Question" : "Add Question"}
+          </Text>
           <Spacer width="100%" height={20} />
           <View style={{ flex: 1 }}>
             <ScrollView
               style={{ width: "100%", height: "100%" }}
               showsVerticalScrollIndicator={false}
               ref={(ref) => (scrollViewRef.current = ref)}
+              scrollEventThrottle={100}
+              onScroll={(event) => {
+                // this helps make the GestureRecognizer a little less sensitive
+                if (event.nativeEvent.contentOffset.y <= 10)
+                  setScrolling(false);
+                else setScrolling(true);
+              }}
             >
               <Text
                 style={{

@@ -3,11 +3,18 @@ import Slider from "@react-native-community/slider";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Keyboard,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SCREEN_HEIGHT } from "../constants/dimensions";
+import { Answer, createQuestion } from "../firebase";
+import { Question } from "../screens/CreatePollScreen";
 
 type NumberAnswerVariant = "Percentage" | "Number";
 interface VariantButtonContainerProps {
@@ -22,8 +29,89 @@ interface RangeSliderContainerProps {
   setMaxValue: React.Dispatch<React.SetStateAction<number>>;
 }
 interface NumberAnswerProps {
+  pollID: string;
   questionText: string;
+  scrollViewRef: React.MutableRefObject<ScrollView>;
+  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
+interface RangeInputContainerProps {
+  scrollViewRef: React.MutableRefObject<ScrollView>;
+  inputVal1: string;
+  inputVal2: string;
+  setInputVal1: React.Dispatch<React.SetStateAction<string>>;
+  setInputVal2: React.Dispatch<React.SetStateAction<string>>;
+  setInputFocused: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const handleFadeAnimation = (
+  fadeAnimationProgress: Animated.Value,
+  invalidRange: boolean,
+  animationTriggered: boolean,
+  setAnimationTriggered: React.Dispatch<React.SetStateAction<boolean>>
+) => {
+  useEffect(() => {
+    if (!animationTriggered) {
+      setAnimationTriggered(true);
+      if (invalidRange) {
+        Animated.timing(fadeAnimationProgress, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => setAnimationTriggered(false));
+      } else {
+        Animated.timing(fadeAnimationProgress, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => setAnimationTriggered(false));
+      }
+    }
+  }, [invalidRange]);
+};
+
+const handleRiseAnimation = (
+  inputFocused: boolean,
+  riseAnimationProgress: Animated.Value
+) => {
+  useEffect(() => {
+    if (inputFocused)
+      Animated.timing(riseAnimationProgress, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    else
+      Animated.timing(riseAnimationProgress, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+  }, [inputFocused]);
+};
+
+const isRangeInvalid = (
+  variant: NumberAnswerVariant,
+  questionText: string,
+  inputVal1: string,
+  inputVal2: string,
+  minValue: number,
+  maxValue: number
+) => {
+  if (variant === "Number") {
+    if (questionText === "" || inputVal1 === "" || inputVal2 === "")
+      return true;
+    const re = /^[0-9]+$/;
+    if (!re.test(inputVal1) || !re.test(inputVal2)) return true;
+    else {
+      const num1 = parseInt(inputVal1);
+      const num2 = parseInt(inputVal2);
+      return num1 >= num2;
+    }
+  } else return minValue === maxValue || questionText === "";
+};
 
 const VariantButtonContainer = ({
   variant,
@@ -85,7 +173,7 @@ const RangeSliders = ({
         <View>
           <Text style={styles.innerContainerText}>Min Value</Text>
           <Text style={styles.sliderValue}>
-            {minValue}
+            {minValue <= maxValue ? minValue : maxValue}
             {variant === "Percentage" && "%"}
           </Text>
         </View>
@@ -111,7 +199,7 @@ const RangeSliders = ({
         <View>
           <Text style={styles.innerContainerText}>Max Value</Text>
           <Text style={styles.sliderValue}>
-            {maxValue}
+            {maxValue >= minValue ? maxValue : minValue}
             {variant === "Percentage" && "%"}
           </Text>
         </View>
@@ -134,32 +222,101 @@ const RangeSliders = ({
   );
 };
 
-export default function NumberAnswer({ questionText }: NumberAnswerProps) {
+const RangeInputs = ({
+  scrollViewRef,
+  inputVal1,
+  inputVal2,
+  setInputVal1,
+  setInputVal2,
+  setInputFocused,
+}: RangeInputContainerProps) => {
+  const [placeholder1, setPlaceholder1] = useState("Enter a number...");
+  const [placeholder2, setPlaceholder2] = useState("Enter a number...");
+
+  useEffect(() => {
+    if (placeholder1 === "" || placeholder2 === "") setInputFocused(true);
+    else if (placeholder1 !== "" && placeholder2 !== "") setInputFocused(false);
+  }, [placeholder1, placeholder2]);
+
+  return (
+    <>
+      <View style={[styles.rangeInputContainer, { width: "100%" }]}>
+        <Text style={styles.innerContainerText}>Min Value</Text>
+        <Spacer width={20} height="100%" />
+        <TextInput
+          style={styles.textInput}
+          value={inputVal1}
+          placeholder={placeholder1}
+          keyboardType="number-pad"
+          selectionColor={"#D2042D"}
+          placeholderTextColor={"#D2042D"}
+          onChangeText={(text) => setInputVal1(text)}
+          onFocus={() => {
+            setPlaceholder1("");
+            scrollViewRef.current.scrollToEnd({ animated: true });
+          }}
+          onBlur={() => setPlaceholder1("Enter a number...")}
+        />
+      </View>
+      <Spacer width="100%" height={20} />
+      <View style={[styles.rangeInputContainer, { width: "100%" }]}>
+        <Text style={styles.innerContainerText}>Max Value</Text>
+        <Spacer width={20} height="100%" />
+        <TextInput
+          style={styles.textInput}
+          value={inputVal2}
+          placeholder={placeholder2}
+          keyboardType="number-pad"
+          selectionColor={"#D2042D"}
+          placeholderTextColor={"#D2042D"}
+          onChangeText={(text) => setInputVal2(text)}
+          onFocus={() => {
+            setPlaceholder2("");
+            scrollViewRef.current.scrollToEnd({ animated: true });
+          }}
+          onBlur={() => setPlaceholder2("Enter a number...")}
+        />
+      </View>
+    </>
+  );
+};
+
+export default function NumberAnswer({
+  pollID,
+  questionText,
+  scrollViewRef,
+  setQuestionText,
+  questions,
+  setQuestions,
+  setOuterModalVisible,
+}: NumberAnswerProps) {
   const [variant, setVariant] = useState<NumberAnswerVariant>(undefined);
   const [minValue, setMinValue] = useState(0);
   const [maxValue, setMaxValue] = useState(0);
+  const [inputVal1, setInputVal1] = useState("");
+  const [inputVal2, setInputVal2] = useState("");
   const [animationTriggered, setAnimationTriggered] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const fadeAnimationProgress = useRef(new Animated.Value(0)).current;
-  const invalidRange = minValue === maxValue || questionText === "";
+  const riseAnimationProgress = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (!animationTriggered) {
-      setAnimationTriggered(true);
-      if (minValue >= maxValue) {
-        Animated.timing(fadeAnimationProgress, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => setAnimationTriggered(false));
-      } else {
-        Animated.timing(fadeAnimationProgress, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => setAnimationTriggered(false));
-      }
-    }
-  }, [invalidRange]);
+  const invalidRange = isRangeInvalid(
+    variant,
+    questionText,
+    inputVal1,
+    inputVal2,
+    minValue,
+    maxValue
+  );
+
+  handleFadeAnimation(
+    fadeAnimationProgress,
+    invalidRange,
+    animationTriggered,
+    setAnimationTriggered
+  );
+
+  handleRiseAnimation(inputFocused, riseAnimationProgress);
 
   return (
     <>
@@ -169,19 +326,51 @@ export default function NumberAnswer({ questionText }: NumberAnswerProps) {
       {variant !== undefined && (
         <>
           <Spacer width="100%" height={40} />
-          <Text style={styles.heading}>Set Range</Text>
-          <Spacer width="100%" height={10} />
-          <View style={styles.outerRed}>
-            <View style={styles.wineColor}>
-              <RangeSliders
-                variant={variant}
-                minValue={minValue}
-                maxValue={maxValue}
-                setMinValue={setMinValue}
-                setMaxValue={setMaxValue}
-              />
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  translateY: riseAnimationProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -155],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Text
+              style={[
+                styles.heading,
+                // need to give some extra coloring for the rise animation
+                { width: "100%", backgroundColor: "#FFF" },
+              ]}
+            >
+              Set Range
+            </Text>
+            <Spacer width="100%" height={10} />
+            <View style={styles.outerRed}>
+              <View style={styles.wineColor}>
+                {variant === "Percentage" ? (
+                  <RangeSliders
+                    variant={variant}
+                    minValue={minValue}
+                    maxValue={maxValue}
+                    setMinValue={setMinValue}
+                    setMaxValue={setMaxValue}
+                  />
+                ) : (
+                  <RangeInputs
+                    scrollViewRef={scrollViewRef}
+                    inputVal1={inputVal1}
+                    inputVal2={inputVal2}
+                    setInputVal1={setInputVal1}
+                    setInputVal2={setInputVal2}
+                    setInputFocused={setInputFocused}
+                  />
+                )}
+              </View>
             </View>
-          </View>
+          </Animated.View>
           <Spacer width="100%" height={10} />
           <Animated.View
             style={[
@@ -192,6 +381,32 @@ export default function NumberAnswer({ questionText }: NumberAnswerProps) {
             <TouchableOpacity
               disabled={invalidRange}
               style={styles.submitButtonContainer}
+              onPress={async () => {
+                const questionData = await createQuestion(
+                  pollID,
+                  "Number Answer",
+                  questionText,
+                  [
+                    {
+                      answerText: `${
+                        variant === "Number" ? inputVal1 : minValue
+                      }`,
+                      answerType: "Number Answer",
+                      answerVariant: variant,
+                    },
+                    {
+                      answerText: `${
+                        variant === "Number" ? inputVal2 : maxValue
+                      }`,
+                      answerType: "Number Answer",
+                      answerVariant: variant,
+                    },
+                  ]
+                );
+                setQuestions(questions.concat([questionData]));
+                setOuterModalVisible(false);
+                setQuestionText("");
+              }}
             >
               <Text style={styles.submitButtonText}>Submit</Text>
             </TouchableOpacity>
@@ -272,5 +487,14 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     backgroundColor: "#D2042D",
     borderRadius: 5,
+  },
+  textInput: {
+    flex: 1,
+    height: "100%",
+    borderRadius: 5,
+    backgroundColor: "#FFF",
+    color: "#D2042D",
+    textAlign: "center",
+    padding: 10,
   },
 });

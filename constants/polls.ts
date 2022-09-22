@@ -21,6 +21,23 @@ const RANKING: QuestionTypeID = 2;
 const NUMBER_ANSWER: QuestionTypeID = 3;
 const IMAGE_SELECTION: QuestionTypeID = 4;
 
+const getIDFromQuestionType = (questionType: AcceptedLabel) => {
+  switch (questionType) {
+    case "Multiple Choice":
+      return MULTIPLE_CHOICE;
+    case "Free Response":
+      return FREE_RESPONSE;
+    case "Ranking":
+      return RANKING;
+    case "Number Answer":
+      return NUMBER_ANSWER;
+    case "Image Selection":
+      return IMAGE_SELECTION;
+    default:
+      return -1;
+  }
+};
+
 export {
   POLL_QUESTION_TYPES,
   MULTIPLE_CHOICE,
@@ -28,6 +45,7 @@ export {
   RANKING,
   NUMBER_ANSWER,
   IMAGE_SELECTION,
+  getIDFromQuestionType,
 };
 
 export type { QuestionTypeID };

@@ -279,7 +279,7 @@ const AnswerContainer = ({
       <View style={styles.outerRed}>
         <View style={[styles.centerView, styles.wineColor, { padding: 0 }]}>
           {toRank.length === 0 && (
-            <View style={{ padding: 10 }}>
+            <View style={{ padding: 20 }}>
               <ListEmpty />
             </View>
           )}
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 7.5,
     backgroundColor: "rgba(114, 47, 55, 0.5)",
-    padding: 10,
+    padding: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-evenly",
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-evenly",
     flexWrap: "wrap",
-    padding: 5,
+    padding: 20,
   },
   itemPreviewParent: {
     width: 100,
