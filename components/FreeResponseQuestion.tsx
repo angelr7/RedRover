@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
-import { createQuestion } from "../firebase";
+import { createQuestion, editQuestion } from "../firebase";
 import { Question } from "../screens/CreatePollScreen";
 
 interface FreeResponseProps {
@@ -18,9 +18,9 @@ interface FreeResponseProps {
   scrollViewRef: React.MutableRefObject<ScrollView>;
   questionText: string;
   questions: Question[];
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  currQuestion: Question;
 }
 
 const handleMoveUp = (
@@ -84,12 +84,14 @@ export default function FreeResponse({
   questionText,
   scrollViewRef,
   setQuestions,
-  setQuestionText,
   setOuterModalVisible,
+  currQuestion,
 }: FreeResponseProps) {
-  const [charLimit, setCharLimit] = useState("");
   const [placeholder, setPlaceholder] = useState("Enter a character limit...");
   const [characterLimitApproved, setCharacterLimitApproved] = useState(false);
+  const [charLimit, setCharLimit] = useState(
+    currQuestion !== undefined ? currQuestion.answers[0].answerText : ""
+  );
   const spacerHeight = useRef(new Animated.Value(0)).current;
   const fadeAnimationProgress = useRef(new Animated.Value(0)).current;
 
@@ -111,6 +113,7 @@ export default function FreeResponse({
           keyboardType="number-pad"
           placeholder={placeholder}
           placeholderTextColor="#FFF"
+          value={charLimit}
           onChangeText={(text) => setCharLimit(text)}
           onFocus={() => {
             handleMoveUp(spacerHeight, scrollViewRef);
@@ -130,15 +133,38 @@ export default function FreeResponse({
           style={styles.submitButton}
           disabled={!characterLimitApproved}
           onPress={async () => {
-            const questionData = await createQuestion(
-              pollID,
-              "Free Response",
-              questionText,
-              []
-            );
-            setQuestions(questions.concat([questionData]));
+            const editing = currQuestion !== undefined;
+            let questionData: Question;
+            if (!editing) {
+              questionData = await createQuestion(
+                pollID,
+                "Free Response",
+                questionText,
+                [
+                  {
+                    answerText: charLimit,
+                    answerType: "Free Response",
+                    answerVariant: "undefined",
+                  },
+                ]
+              );
+              setQuestions(questions.concat([questionData]));
+            } else {
+              questionData = await editQuestion(
+                pollID,
+                currQuestion.id,
+                "Free Response",
+                questionText,
+                [
+                  {
+                    answerText: charLimit,
+                    answerType: "Free Response",
+                    answerVariant: "undefined",
+                  },
+                ]
+              );
+            }
             setOuterModalVisible(false);
-            setQuestionText("");
           }}
         >
           <Text style={styles.buttonText}>Submit</Text>
@@ -183,7 +209,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFF",
     fontFamily: "Actor_400Regular",
-    fontSize: 17.5
+    fontSize: 17.5,
   },
   wineShade: {
     backgroundColor: "#D2042D",

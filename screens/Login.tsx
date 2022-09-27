@@ -19,6 +19,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase";
 import Toast from "react-native-root-toast";
+import LoadingScreen from "../components/LoadingScreen";
 
 const showToast = (message: string) => {
   Toast.show(message, {
@@ -179,8 +180,7 @@ export default function Login({ navigation }) {
     errorAnimationProgress
   );
 
-  //TODO: replace w/ loading screen
-  if (!fontsLoaded) return <View />;
+  if (!fontsLoaded) return <LoadingScreen />;
 
   return (
     <SafeAreaView style={[styles.container, styles.centerView]}>

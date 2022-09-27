@@ -13,10 +13,12 @@ import {
   TextInput,
   Animated,
   Keyboard,
+  Image,
 } from "react-native";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
 import { Answer, createQuestion } from "../firebase";
 import { Question } from "../screens/CreatePollScreen";
+import FastImage from "./FastImage";
 
 type RankingVariant = "Text Ranking" | "Image Ranking";
 interface VariantButtonContainerProps {
@@ -28,6 +30,8 @@ interface AnswerContainerProps {
   toRank: RankingItem[];
   setToRank: React.Dispatch<React.SetStateAction<RankingItem[]>>;
   setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  pollID: string;
+  currQuestion: Question;
 }
 interface AddItemModalProps {
   riseAnimationProgress: Animated.Value;
@@ -48,14 +52,16 @@ interface AnswerPreviewProps {
   index: number;
   toRank: RankingItem[];
   setToRank: React.Dispatch<React.SetStateAction<RankingItem[]>>;
+  pollID: string;
+  currQuestion: Question;
 }
 interface RankingProps {
   pollID: string;
   questionText: string;
   questions: Question[];
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  currQuestion: Question;
 }
 
 const handleRiseAnimation = (riseAnimationProgress: Animated.Value) => {
@@ -165,16 +171,20 @@ const AnswerPreview = ({
   index,
   toRank,
   setToRank,
+  pollID,
+  currQuestion,
 }: AnswerPreviewProps) => {
   const [flipped, setFlipped] = useState(false);
   const flipAnimationProgress = useRef(new Animated.Value(0)).current;
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
   const imageButtonStyle = {
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderColor: "#FFF",
     borderWidth: 1,
   };
+
+  const re = /^file:\/\//;
+  const localUri = item.uri !== undefined && re.test(item.uri);
 
   handleFlipAnimation(flipAnimationProgress, flipped);
 
@@ -211,10 +221,22 @@ const AnswerPreview = ({
         >
           {typeof item.data === "string" && item.data}
         </Animated.Text>
-      ) : (
-        <Animated.Image
-          source={item.uri && { uri: item.uri }}
+      ) : localUri ? (
+        // sub Image component for local URI's because they're faster (no state update)
+        <Image
+          source={{ uri: localUri && item.uri }}
           style={{ width: 100, height: 100, borderRadius: 5 }}
+        />
+      ) : (
+        <FastImage
+          trueCenter
+          pollID={pollID}
+          uri={item.uri && item.uri}
+          style={{ width: 100, height: 100, borderRadius: 5 }}
+          answerImageData={{
+            answerIndex: index,
+            questionID: currQuestion && currQuestion.id,
+          }}
         />
       )}
       <Animated.View
@@ -228,7 +250,11 @@ const AnswerPreview = ({
           disabled={!flipped}
           onPress={() => {
             setToRank(
-              toRank.filter((rankingItem) => rankingItem.data !== item.data)
+              toRank.filter((rankingItem) => {
+                if (rankingItem.variant === "Text Ranking")
+                  return rankingItem.data !== item.data;
+                else return rankingItem.uri !== item.uri;
+              })
             );
           }}
           style={[
@@ -273,6 +299,8 @@ const AnswerContainer = ({
   toRank,
   setToRank,
   setModalVisible,
+  pollID,
+  currQuestion,
 }: AnswerContainerProps) => {
   return (
     <>
@@ -292,6 +320,8 @@ const AnswerContainer = ({
                   item={item}
                   index={index}
                   key={index}
+                  pollID={pollID}
+                  currQuestion={currQuestion}
                 />
               ))}
             </View>
@@ -299,23 +329,27 @@ const AnswerContainer = ({
         </View>
       </View>
       <Spacer width="100%" height={10} />
-      <TouchableOpacity
-        style={styles.addButtonContainer}
-        onPress={async () => {
-          if (variant === "Text Ranking") setModalVisible(true);
-          else {
-            const { bytes, uri } = await pickImage();
-            if (bytes !== undefined) {
-              setToRank(
-                toRank.concat([{ variant: "Image Ranking", data: bytes, uri }])
-              );
+      {variant !== undefined && (
+        <TouchableOpacity
+          style={styles.addButtonContainer}
+          onPress={async () => {
+            if (variant === "Text Ranking") setModalVisible(true);
+            else {
+              const { bytes, uri } = await pickImage();
+              if (bytes !== undefined) {
+                setToRank(
+                  toRank.concat([
+                    { variant: "Image Ranking", data: bytes, uri },
+                  ])
+                );
+              }
             }
-          }
-        }}
-      >
-        <Ionicons name="add-circle" style={styles.addButton1} />
-        <Ionicons name="add-circle" style={styles.addButton2} />
-      </TouchableOpacity>
+          }}
+        >
+          <Ionicons name="add-circle" style={styles.addButton1} />
+          <Ionicons name="add-circle" style={styles.addButton2} />
+        </TouchableOpacity>
+      )}
     </>
   );
 };
@@ -421,17 +455,28 @@ const AddItemModal = ({
 };
 
 // TODO: fix imagePicker promise rejection
-// TODO: cascade on poll delete, question delete, answerDelete
 export default function Ranking({
   pollID,
   questionText,
   questions,
-  setQuestionText,
   setQuestions,
   setOuterModalVisible,
+  currQuestion,
 }: RankingProps) {
   const [variant, setVariant] = useState<RankingVariant>(undefined);
-  const [toRank, setToRank] = useState<RankingItem[]>([]);
+  const [toRank, setToRank] = useState<RankingItem[]>(
+    currQuestion === undefined
+      ? []
+      : currQuestion.answers.map((question): RankingItem => {
+          const isTextRanking = question.answerVariant === "Text Ranking";
+          return {
+            data: isTextRanking ? question.answerText : "",
+            uri: isTextRanking ? undefined : question.answerText,
+            // do this to avoid TS error
+            variant: isTextRanking ? "Text Ranking" : "Image Ranking",
+          };
+        })
+  );
   const [modalVisible, setModalVisible] = useState(false);
   const [itemText, setItemText] = useState("");
   const riseAnimationProgress = useRef(new Animated.Value(0)).current;
@@ -444,16 +489,16 @@ export default function Ranking({
       <Spacer width="100%" height={10} />
       <VariantButtonContainer variant={variant} setVariant={setVariant} />
       <Spacer width="100%" height={40} />
-      {variant && <Text style={styles.heading}>Items To Rank</Text>}
+      <Text style={styles.heading}>Items To Rank</Text>
       <Spacer width="100%" height={10} />
-      {variant && (
-        <AnswerContainer
-          variant={variant}
-          toRank={toRank}
-          setToRank={setToRank}
-          setModalVisible={setModalVisible}
-        />
-      )}
+      <AnswerContainer
+        variant={variant}
+        toRank={toRank}
+        setToRank={setToRank}
+        setModalVisible={setModalVisible}
+        pollID={pollID}
+        currQuestion={currQuestion}
+      />
       {toRank.length > 1 && questionText !== "" && (
         <>
           <Spacer width="100%" height={10} />
@@ -482,10 +527,11 @@ export default function Ranking({
                 );
                 setQuestions(questions.concat([questionData]));
                 setOuterModalVisible(false);
-                setQuestionText("");
               }}
             >
-              <Text style={styles.modalSubmitButtonText}>Submit</Text>
+              <Text style={styles.modalSubmitButtonText}>
+                {currQuestion === undefined ? "Submit" : "Save"}
+              </Text>
             </TouchableOpacity>
           </View>
         </>

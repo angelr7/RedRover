@@ -1,14 +1,20 @@
+import * as FileSystem from "expo-file-system";
 import React, { useEffect, useState } from "react";
 import { Image, View, ActivityIndicator, ImageResizeMode } from "react-native";
-import * as FileSystem from "expo-file-system";
 
+interface AnswerImageData {
+  questionID: string;
+  answerIndex: number;
+}
 interface FastImageProps {
   pollID: string;
   uri: string;
-  style: any;
+  style?: any;
+  trueCenter?: boolean;
   resizeMode?: ImageResizeMode;
   blurRadius?: number;
   borderRadius?: number;
+  answerImageData?: AnswerImageData;
 }
 
 async function findImageInCache(uri: string) {
@@ -58,12 +64,15 @@ export default function FastImage({
   resizeMode,
   blurRadius,
   borderRadius,
+  answerImageData,
+  trueCenter,
 }: FastImageProps) {
   const [imgUri, setUri] = useState("");
-
   useEffect(() => {
+    let cacheFileUri = `${FileSystem.cacheDirectory}${pollID}`;
+    if (answerImageData)
+      cacheFileUri += `.${answerImageData.questionID}.${answerImageData.answerIndex}`;
     async function loadImg() {
-      const cacheFileUri = `${FileSystem.cacheDirectory}${pollID}`;
       let imgXistsInCache = await findImageInCache(cacheFileUri);
       if (imgXistsInCache.exists) {
         setUri(cacheFileUri);
@@ -96,7 +105,7 @@ export default function FastImage({
             position: "absolute",
             width: "100%",
             height: "100%",
-            paddingTop: 25,
+            paddingTop: trueCenter ? 0 : 25,
           }}
         >
           <ActivityIndicator size={50} />

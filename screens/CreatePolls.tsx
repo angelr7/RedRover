@@ -70,7 +70,6 @@ const PollPreview = ({
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
-  // TODO: add an edit button and preview items
   return (
     <AnimatedPressable
       style={[
@@ -379,7 +378,11 @@ const DeleteMessageModal = ({
           >
             <TouchableOpacity
               onPress={async () => {
-                await removePoll(pollData.author, pollData.dateCreated);
+                await removePoll(
+                  pollData.id,
+                  pollData.previewImageURI !== "",
+                  pollData.published
+                );
                 setRefetch(true);
                 setModalVisible(false);
               }}
@@ -497,7 +500,22 @@ export default function LandingScreen({ route, navigation }) {
             <FlatList
               data={published}
               horizontal={true}
-              renderItem={({ item }) => <View />}
+              showsHorizontalScrollIndicator={false}
+              ItemSeparatorComponent={() => {
+                return <Spacer width={10} height="100%" />;
+              }}
+              renderItem={({ item }) => {
+                return (
+                  <PollPreview
+                    pollData={item}
+                    navigation={navigation}
+                    userData={userData}
+                    setModalVisible={setModalVisible}
+                    setPollData={setPollData}
+                    selectedDraft={selectedDraft}
+                  />
+                );
+              }}
             />
           )}
         </View>

@@ -4,19 +4,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Spacer from "./Spacer";
 import { IMAGE_SELECTION } from "../constants/polls";
 
-type AcceptedIcon =
-  | "tasks"
-  | "i-cursor"
-  | "podium"
-  | "numbers"
-  | "map-signs"
-  | "images";
+type AcceptedIcon = "tasks" | "i-cursor" | "podium" | "numbers" | "images";
 type AcceptedLabel =
   | "Multiple Choice"
   | "Free Response"
   | "Ranking"
   | "Number Answer"
-  | "Mix & Match"
   | "Image Selection";
 interface Props {
   iconName: AcceptedIcon;
@@ -32,7 +25,6 @@ interface StyleProp {
   [key: string]: any;
 }
 
-// TODO: animate button selection
 export default function PollTypeButton({
   iconName,
   label,

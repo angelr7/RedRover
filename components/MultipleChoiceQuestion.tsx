@@ -1,12 +1,12 @@
-// TODO: add question creation flow to backend + frontend
 import * as Haptics from "expo-haptics";
 import Spacer from "../components/Spacer";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import LoadingScreen from "./LoadingScreen";
 import React, { useEffect, useRef, useState } from "react";
 import { AddQuestionsProps, Question } from "../screens/CreatePollScreen";
 import { ListEmpty } from "../screens/CreatePolls";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
-import { Answer, createQuestion } from "../firebase";
+import { Answer, createQuestion, editQuestion } from "../firebase";
 import {
   TextInput,
   Text,
@@ -20,17 +20,18 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import LoadingScreen from "./LoadingScreen";
 
 interface MultipleChoiceProps {
   pollID: string;
   pollData: AddQuestionsProps["pollData"];
   questionText: string;
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   scrollViewRef: React.MutableRefObject<ScrollView>;
+  currQuestion: Question | undefined;
+  setRefetch: React.Dispatch<React.SetStateAction<boolean>>;
+  oldAnswers?: any[] | undefined; // passed in when editing
 }
 interface AnswerPreviewProps {
   answerData: Answer;
@@ -500,20 +501,22 @@ export default function MultipleChoice({
   pollID,
   pollData,
   questionText,
-  setQuestionText,
   setOuterModalVisible,
   questions,
   setQuestions,
   scrollViewRef,
+  currQuestion,
+  setRefetch,
+  oldAnswers,
 }: MultipleChoiceProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [answerInput, setAnswerInput] = useState("");
-  const [answers, setAnswers] = useState<any[]>([]);
+  const [answers, setAnswers] = useState<any[]>(oldAnswers ?? []);
   const [selectedAnswer, setSelectedAnswer] = useState<any>(undefined);
 
   const riseAnimationProgress = useRef(new Animated.Value(0)).current;
 
-  const canSubmit = answers.length > 0 && questionText !== "";
+  const canSubmit = answers.length > 1 && questionText !== "";
 
   handleAnimations(riseAnimationProgress, answerInput);
 
@@ -545,15 +548,28 @@ export default function MultipleChoice({
         <TouchableOpacity
           style={styles.submitButtonContainer}
           onPress={async () => {
-            const questionData = await createQuestion(
-              pollID,
-              "Multiple Choice",
-              questionText,
-              answers
-            );
-            setQuestions(questions.concat([questionData]));
+            // this means we're editing, not creating
+            let questionData: Question;
+            const editing = currQuestion !== undefined;
+            if (editing) {
+              questionData = await editQuestion(
+                pollID,
+                currQuestion.id,
+                "Multiple Choice",
+                questionText,
+                answers
+              );
+            } else {
+              questionData = await createQuestion(
+                pollID,
+                "Multiple Choice",
+                questionText,
+                answers
+              );
+              setQuestions(questions.concat([questionData]));
+            }
+            if (editing) setRefetch(true);
             setOuterModalVisible(false);
-            setQuestionText("");
           }}
         >
           <View style={[styles.submitButtonContainer2, styles.centerView]}>

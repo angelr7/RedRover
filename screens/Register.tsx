@@ -14,6 +14,7 @@ import { SCREEN_WIDTH } from "../constants/dimensions";
 import Spacer from "../components/Spacer";
 import { initUser, auth } from "../firebase";
 import Toast from "react-native-root-toast";
+import LoadingScreen from "../components/LoadingScreen";
 
 const SYMBOLS = "`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/";
 
@@ -60,7 +61,6 @@ const showToast = (message: string) => {
   });
 };
 
-// TODO: update navigation types
 const handlePress =
   (
     navigation: any,
@@ -317,8 +317,7 @@ export default function Register({ navigation }) {
     setInputStyle
   );
 
-  //TODO: replace w/ loading screen
-  if (!fontsLoaded) return <View />;
+  if (!fontsLoaded) return <LoadingScreen />;
 
   return (
     // right now, we're only working w/ an ordinary email and password,

@@ -10,7 +10,13 @@ import InitialPrompt from "./InitialPrompt";
 import AddQuestionsModal from "./AddQuestionsModal";
 import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK } from "../constants/localization";
-import { Answer, deleteQuestion, getQuestions, UserData } from "../firebase";
+import {
+  Answer,
+  deleteQuestion,
+  getQuestions,
+  publishPoll,
+  UserData,
+} from "../firebase";
 import { ListEmpty } from "./CreatePolls";
 import { AcceptedLabel } from "../components/PollTypeButton";
 import {
@@ -28,6 +34,7 @@ import {
   Modal,
 } from "react-native";
 import GestureRecognizer from "react-native-swipe-gestures";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
 
 type Screen = "Initial" | "Description" | "Loading" | "AddQuestions";
 interface LocalPageScreen {
@@ -56,6 +63,7 @@ interface AddQuestionsProps {
     id: string;
   };
   setScreen: React.Dispatch<React.SetStateAction<LocalPageScreen>>;
+  setLoadingModalVisible?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 interface Question {
   id: string;
@@ -100,6 +108,10 @@ interface QuestionPreviewBacksideProps {
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setCurrQuestion: React.Dispatch<React.SetStateAction<Question>>;
+}
+interface PublishingModalProps {
+  modalVisible: boolean;
+  setModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 // gives a relative timestamp similar to iOS
@@ -452,7 +464,7 @@ const QuestionPreviewBackside = ({
         <TouchableOpacity
           style={[styles.questionPreviewButtonContainer, styles.centerView]}
           onPress={async () => {
-            await deleteQuestion(pollID, question.id);
+            await deleteQuestion(pollID, question);
             setQuestions(questions.filter((q) => q.id !== question.id));
           }}
         >
@@ -572,19 +584,21 @@ const QuestionContainer = ({
   }: {
     index: number;
     question: Question;
-  }) => (
-    <>
-      <QuestionPreview
-        key={index}
-        pollID={pollID}
-        question={question}
-        questions={questions}
-        setQuestions={setQuestions}
-        setCurrQuestion={setCurrQuestion}
-      />
-      {index !== questions.length - 1 && <Spacer width="100%" height={10} />}
-    </>
-  );
+  }) => {
+    return (
+      <>
+        <QuestionPreview
+          key={index}
+          pollID={pollID}
+          question={question}
+          questions={questions}
+          setQuestions={setQuestions}
+          setCurrQuestion={setCurrQuestion}
+        />
+        {index !== questions.length - 1 && <Spacer width="100%" height={10} />}
+      </>
+    );
+  };
 
   return (
     <View
@@ -615,20 +629,33 @@ const Loading = () => {
   );
 };
 
-const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
+// TODO: add a call that publishes the polls
+const AddQuestions = ({
+  userData,
+  pollData,
+  setScreen,
+  setLoadingModalVisible,
+}: AddQuestionsProps) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [questions, setQuestions] = useState<Question[]>(undefined);
   const [pollID, setPollID] = useState<string>(undefined);
   const [currQuestion, setCurrQuestion] = useState<Question>(undefined);
+  const [refetch, setRefetch] = useState(false);
+  const mounted = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const fetchingQuestions = questions === undefined || pollID === undefined;
 
   useEffect(() => {
-    getQuestions(pollData.author, pollData.title).then((result) => {
-      setPollID(result.pollID);
-      setQuestions(result.questions ?? []);
-    });
-  }, []);
+    if (!mounted.current || refetch)
+      try {
+        getQuestions(pollData.author, pollData.title).then((result) => {
+          setPollID(result.pollID);
+          setQuestions(result.questions ?? []);
+        });
+      } catch (error) {}
+    if (refetch) setRefetch(false);
+    if (!mounted.current) mounted.current = true;
+  }, [refetch]);
 
   useEffect(() => {
     if (currQuestion === undefined) setModalVisible(false);
@@ -673,6 +700,37 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
       >
         <Ionicons name="add-circle" style={{ color: "#FFF", fontSize: 57.5 }} />
       </TouchableOpacity>
+      <Spacer width="100%" height={20} />
+      {questions && questions.length > 0 && (
+        <>
+          <TouchableOpacity
+            onPress={async () => {
+              setLoadingModalVisible(true);
+              await publishPoll(pollID);
+              setLoadingModalVisible(false);
+            }}
+            style={{
+              alignSelf: "center",
+              backgroundColor: "rgba(114, 47, 55, 0.5)",
+              padding: 10,
+              borderRadius: 5,
+              borderColor: "#FFF",
+              borderWidth: 1,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Actor_400Regular",
+                fontSize: 17.5,
+                color: "#FFF",
+              }}
+            >
+              Submit
+            </Text>
+          </TouchableOpacity>
+          <Spacer width="100%" height={20} />
+        </>
+      )}
       <AddQuestionsModal
         pollID={pollID}
         pollData={pollData}
@@ -681,8 +739,71 @@ const AddQuestions = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
         questions={questions}
         setQuestions={setQuestions}
         currQuestion={currQuestion}
+        setCurrQuestion={setCurrQuestion}
+        setRefetch={setRefetch}
       />
     </ScrollView>
+  );
+};
+
+// TODO: add poll finish animation + haptic bump
+// maybe put a check for the animtion (if there's time)
+const PublishingPoll = () => {
+  const [loadingText, setLoadingText] = useState("Publishing your poll");
+  useEffect(() => {
+    setTimeout(() => {
+      const ellipsesFilled = loadingText.slice(-3) === "...";
+      setLoadingText(
+        ellipsesFilled ? "Publishing your poll" : loadingText + "."
+      );
+    }, 250);
+  }, [loadingText]);
+
+  return (
+    <Text
+      style={{
+        fontFamily: "Actor_400Regular",
+        color: "#D2042D",
+        textAlign: "center",
+        fontSize: 25,
+      }}
+    >
+      {loadingText}
+    </Text>
+  );
+};
+
+const PublishingModal = ({
+  modalVisible,
+  setModalVisible,
+}: PublishingModalProps) => {
+  return (
+    <Modal visible={modalVisible} animationType="fade" transparent>
+      <View
+        style={[
+          styles.centerView,
+          {
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.centerView,
+            {
+              width: 300,
+              height: 150,
+              borderRadius: 7.5,
+              backgroundColor: "#FFF",
+            },
+          ]}
+        >
+          <PublishingPoll />
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -706,6 +827,8 @@ export default function CreatePollScreen({ route }) {
   const [userData, _] = useState<UserData>(
     route.params.userData ?? route.params.initialScreen.params.userData
   );
+
+  const [modalVisible, setModalVisible] = useState(false);
 
   // we only need and want one keyboard listener for the whole screen
   useEffect(() => {
@@ -770,6 +893,7 @@ export default function CreatePollScreen({ route }) {
                   pollData={screen.params.pollData}
                   userData={screen.params.userData}
                   setScreen={setScreen}
+                  setLoadingModalVisible={setModalVisible}
                 />
               );
             }
@@ -779,6 +903,10 @@ export default function CreatePollScreen({ route }) {
             return <View />;
         }
       })()}
+      <PublishingModal
+        modalVisible={modalVisible}
+        setModalVisible={setModalVisible}
+      />
     </SafeAreaView>
   );
 }
@@ -965,6 +1093,11 @@ const styles = StyleSheet.create({
     fontSize: 17.5,
     color: "#D2042D",
   },
+  // modalBackdrop: {
+  //   width: SCREEN_WIDTH,
+  //   height: SCREEN_HEIGHT,
+  //   backgroundColor: "rbga(0, 0, 0, 0.5)",
+  // },
 });
 
 export type { LocalPageScreen, AddQuestionsProps, Question };

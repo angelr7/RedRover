@@ -34,6 +34,8 @@ interface AddQuestionsModalProps {
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   pollID: string;
   currQuestion: Question;
+  setCurrQuestion: React.Dispatch<React.SetStateAction<Question>>;
+  setRefetch: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const getQuestionType = (
@@ -41,11 +43,12 @@ const getQuestionType = (
   currSelected: number,
   pollData: AddQuestionsProps["pollData"],
   questionText: string,
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>,
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>,
   questions: Question[],
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>,
-  scrollViewRef: React.MutableRefObject<ScrollView>
+  scrollViewRef: React.MutableRefObject<ScrollView>,
+  currQuestion: Question,
+  setRefetch: React.Dispatch<React.SetStateAction<boolean>>
 ) => {
   let questionTypeScreen: JSX.Element;
   switch (currSelected) {
@@ -55,11 +58,15 @@ const getQuestionType = (
           pollID={pollID}
           pollData={pollData}
           questionText={questionText}
-          setQuestionText={setQuestionText}
           setOuterModalVisible={setOuterModalVisible}
           questions={questions}
           setQuestions={setQuestions}
           scrollViewRef={scrollViewRef}
+          currQuestion={currQuestion}
+          setRefetch={setRefetch}
+          oldAnswers={
+            currQuestion === undefined ? undefined : currQuestion.answers
+          }
         />
       );
       break;
@@ -71,8 +78,8 @@ const getQuestionType = (
           questionText={questionText}
           setQuestions={setQuestions}
           setOuterModalVisible={setOuterModalVisible}
-          setQuestionText={setQuestionText}
           questions={questions}
+          currQuestion={currQuestion}
         />
       );
       break;
@@ -82,9 +89,9 @@ const getQuestionType = (
           pollID={pollID}
           questionText={questionText}
           questions={questions}
-          setQuestionText={setQuestionText}
           setQuestions={setQuestions}
           setOuterModalVisible={setOuterModalVisible}
+          currQuestion={currQuestion}
         />
       );
       break;
@@ -94,8 +101,8 @@ const getQuestionType = (
           pollID={pollID}
           questionText={questionText}
           scrollViewRef={scrollViewRef}
+          currQuestion={currQuestion}
           questions={questions}
-          setQuestionText={setQuestionText}
           setQuestions={setQuestions}
           setOuterModalVisible={setOuterModalVisible}
         />
@@ -105,10 +112,10 @@ const getQuestionType = (
       questionTypeScreen = (
         <ImageSelection
           pollID={pollID}
+          currQuestion={currQuestion}
           scrollViewRef={scrollViewRef}
           questionText={questionText}
           questions={questions}
-          setQuestionText={setQuestionText}
           setQuestions={setQuestions}
           setOuterModalVisible={setOuterModalVisible}
         />
@@ -130,6 +137,8 @@ export default function AddQuestionsModal({
   setModalVisible,
   setQuestions,
   currQuestion,
+  setCurrQuestion,
+  setRefetch,
 }: AddQuestionsModalProps) {
   const [currSelected, setCurrSelected] = useState<number | undefined>(
     undefined
@@ -147,14 +156,24 @@ export default function AddQuestionsModal({
     currSelected,
     pollData,
     questionText,
-    setQuestionText,
     setModalVisible,
     questions,
     setQuestions,
-    scrollViewRef
+    scrollViewRef,
+    currQuestion,
+    setRefetch
   );
 
   useEffect(() => {
+    if (!modalVisible) {
+      setCurrQuestion(undefined);
+      setCurrSelected(undefined);
+      setQuestionText("");
+    }
+  }, [modalVisible]);
+
+  useEffect(() => {
+    // need to reset the current selected question every time the modal closes
     if (editing) {
       setCurrSelected(getIDFromQuestionType(currQuestion.questionType));
       setQuestionText(currQuestion.questionText);

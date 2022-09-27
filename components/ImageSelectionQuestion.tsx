@@ -14,22 +14,29 @@ import {
 } from "react-native";
 import { Answer, createQuestion } from "../firebase";
 import { Question } from "../screens/CreatePollScreen";
+import FastImage from "./FastImage";
+import LoadingScreen from "./LoadingScreen";
 
 interface ImageContainerProps {
+  pollID: string;
+  questionID: string;
   images: string[];
   setImages: React.Dispatch<React.SetStateAction<string[]>>;
 }
 interface ImagePreviewProps {
+  index: number;
+  pollID: string;
+  questionID: string;
   image: string;
   images: string[];
   setImages: React.Dispatch<React.SetStateAction<string[]>>;
 }
 interface ImageSelectionProps {
   pollID: string;
+  currQuestion: Question;
   scrollViewRef: React.MutableRefObject<ScrollView>;
   questionText: string;
   questions: Question[];
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -46,7 +53,6 @@ interface SubmitButtonProps {
   images: string[];
   questionText: string;
   questions: Question[];
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -124,13 +130,21 @@ const ImagePreviewButtons = ({
   );
 };
 
-const ImagePreview = ({ image, images, setImages }: ImagePreviewProps) => {
+// TODO: fix image caching here
+const ImagePreview = ({
+  pollID,
+  index,
+  questionID,
+  image,
+  images,
+  setImages,
+}: ImagePreviewProps) => {
   const [flipped, setFlipped] = useState(false);
   const flipAnimationProgress = useRef(new Animated.Value(0)).current;
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+  const isFileURI = /^file:\/\//.test(image);
 
   handleFlipAnimation(flipped, flipAnimationProgress);
-
   return (
     <AnimatedPressable
       onPress={() => setFlipped(!flipped)}
@@ -146,18 +160,29 @@ const ImagePreview = ({ image, images, setImages }: ImagePreviewProps) => {
         ],
       }}
     >
-      <Animated.Image
-        source={{ uri: image }}
-        style={[
-          styles.imageStyle,
-          {
-            opacity: flipAnimationProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 0],
-            }),
-          },
-        ]}
-      />
+      {isFileURI ? (
+        <Animated.Image
+          source={{ uri: image }}
+          style={[
+            styles.imageStyle,
+            {
+              opacity: flipAnimationProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0],
+              }),
+            },
+          ]}
+        />
+      ) : questionID === undefined ? (
+        <LoadingScreen color="#FFF" />
+      ) : (
+        <FastImage
+          style={styles.imageStyle}
+          pollID={pollID}
+          uri={image}
+          answerImageData={{ answerIndex: index, questionID }}
+        />
+      )}
       <ImagePreviewButtons
         flipAnimationProgress={flipAnimationProgress}
         flipped={flipped}
@@ -170,12 +195,20 @@ const ImagePreview = ({ image, images, setImages }: ImagePreviewProps) => {
   );
 };
 
-const ImageContainer = ({ images, setImages }: ImageContainerProps) => {
+const ImageContainer = ({
+  pollID,
+  questionID,
+  images,
+  setImages,
+}: ImageContainerProps) => {
   return (
     <View style={styles.imageContainer}>
       {images.map((image, index) => (
         <ImagePreview
           key={index}
+          index={index}
+          pollID={pollID}
+          questionID={questionID}
           image={image}
           images={images}
           setImages={setImages}
@@ -190,7 +223,6 @@ const SubmitButton = ({
   images,
   questionText,
   questions,
-  setQuestionText,
   setQuestions,
   setOuterModalVisible,
 }: SubmitButtonProps) => {
@@ -241,7 +273,6 @@ const SubmitButton = ({
         );
         setQuestions(questions.concat([question]));
         setOuterModalVisible(false);
-        setQuestionText("");
       }}
     >
       <View style={[styles.centerView, styles.submitButtonContainer]}>
@@ -253,14 +284,20 @@ const SubmitButton = ({
 
 export default function ImageSelection({
   pollID,
+  currQuestion,
   scrollViewRef,
   questionText,
   questions,
-  setQuestionText,
   setQuestions,
   setOuterModalVisible,
 }: ImageSelectionProps) {
   const [images, setImages] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (currQuestion !== undefined)
+      setImages(currQuestion.answers.map((answer) => answer.answerText));
+  }, [currQuestion]);
+
   return (
     <>
       <Text style={styles.heading}>Add Images</Text>
@@ -269,7 +306,12 @@ export default function ImageSelection({
         <View style={[styles.wineColor, styles.centerView]}>
           {images.length === 0 && <ListEmpty />}
           {images.length > 0 && (
-            <ImageContainer images={images} setImages={setImages} />
+            <ImageContainer
+              images={images}
+              setImages={setImages}
+              pollID={pollID}
+              questionID={currQuestion ? currQuestion.id : undefined}
+            />
           )}
         </View>
       </View>
@@ -292,7 +334,6 @@ export default function ImageSelection({
         pollID={pollID}
         questions={questions}
         setQuestions={setQuestions}
-        setQuestionText={setQuestionText}
         setOuterModalVisible={setOuterModalVisible}
       />
     </>

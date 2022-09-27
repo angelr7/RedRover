@@ -1,10 +1,10 @@
 import Spacer from "./Spacer";
 import Slider from "@react-native-community/slider";
 import React, { useEffect, useRef, useState } from "react";
+import { createQuestion } from "../firebase";
+import { Question } from "../screens/CreatePollScreen";
 import {
   Animated,
-  Keyboard,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,9 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SCREEN_HEIGHT } from "../constants/dimensions";
-import { Answer, createQuestion } from "../firebase";
-import { Question } from "../screens/CreatePollScreen";
 
 type NumberAnswerVariant = "Percentage" | "Number";
 interface VariantButtonContainerProps {
@@ -32,7 +29,7 @@ interface NumberAnswerProps {
   pollID: string;
   questionText: string;
   scrollViewRef: React.MutableRefObject<ScrollView>;
-  setQuestionText: React.Dispatch<React.SetStateAction<string>>;
+  currQuestion: Question;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -285,10 +282,10 @@ export default function NumberAnswer({
   pollID,
   questionText,
   scrollViewRef,
-  setQuestionText,
   questions,
   setQuestions,
   setOuterModalVisible,
+  currQuestion,
 }: NumberAnswerProps) {
   const [variant, setVariant] = useState<NumberAnswerVariant>(undefined);
   const [minValue, setMinValue] = useState(0);
@@ -317,6 +314,23 @@ export default function NumberAnswer({
   );
 
   handleRiseAnimation(inputFocused, riseAnimationProgress);
+
+  useEffect(() => {
+    if (currQuestion !== undefined) {
+      const currVariant: NumberAnswerVariant =
+        currQuestion.answers[0].answerVariant === "Percentage"
+          ? "Percentage"
+          : "Number";
+      setVariant(currVariant);
+      if (currVariant === "Percentage") {
+        setMinValue(parseInt(currQuestion.answers[0].answerText));
+        setMaxValue(parseInt(currQuestion.answers[1].answerText));
+      } else {
+        setInputVal1(currQuestion.answers[0].answerText);
+        setInputVal2(currQuestion.answers[1].answerText);
+      }
+    }
+  }, [currQuestion]);
 
   return (
     <>
@@ -405,7 +419,6 @@ export default function NumberAnswer({
                 );
                 setQuestions(questions.concat([questionData]));
                 setOuterModalVisible(false);
-                setQuestionText("");
               }}
             >
               <Text style={styles.submitButtonText}>Submit</Text>
