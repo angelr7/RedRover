@@ -33,8 +33,6 @@ import {
   Pressable,
   Modal,
 } from "react-native";
-import GestureRecognizer from "react-native-swipe-gestures";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
 
 type Screen = "Initial" | "Description" | "Loading" | "AddQuestions";
 interface LocalPageScreen {
@@ -63,6 +61,7 @@ interface AddQuestionsProps {
     id: string;
   };
   setScreen: React.Dispatch<React.SetStateAction<LocalPageScreen>>;
+  navigation?: any;
   setLoadingModalVisible?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 interface Question {
@@ -631,6 +630,7 @@ const Loading = () => {
 
 // TODO: add a call that publishes the polls
 const AddQuestions = ({
+  navigation,
   userData,
   pollData,
   setScreen,
@@ -708,6 +708,7 @@ const AddQuestions = ({
               setLoadingModalVisible(true);
               await publishPoll(pollID);
               setLoadingModalVisible(false);
+              navigation.pop();
             }}
             style={{
               alignSelf: "center",
@@ -807,7 +808,7 @@ const PublishingModal = ({
   );
 };
 
-export default function CreatePollScreen({ route }) {
+export default function CreatePollScreen({ route, navigation }) {
   const keyboardAnimationVal = useRef(new Animated.Value(0)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -894,6 +895,7 @@ export default function CreatePollScreen({ route }) {
                   userData={screen.params.userData}
                   setScreen={setScreen}
                   setLoadingModalVisible={setModalVisible}
+                  navigation={navigation}
                 />
               );
             }

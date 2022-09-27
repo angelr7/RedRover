@@ -4,7 +4,8 @@ import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Toast from "react-native-root-toast";
 import Spacer from "../components/Spacer";
-import React, { ReducerAction, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { LocalPageScreen } from "./CreatePollScreen";
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
 import { createPoll, editPoll, UserData } from "../firebase";
 import {
@@ -22,7 +23,6 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
-import { LocalPageScreen } from "./CreatePollScreen";
 
 interface SetDescriptionProps {
   title: string;

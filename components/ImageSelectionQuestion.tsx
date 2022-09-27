@@ -1,8 +1,11 @@
+import * as ImagePicker from "expo-image-picker";
 import Spacer from "./Spacer";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as ImagePicker from "expo-image-picker";
+import LoadingScreen from "./LoadingScreen";
 import React, { useEffect, useRef, useState } from "react";
 import { ListEmpty } from "../screens/CreatePolls";
+import { Question } from "../screens/CreatePollScreen";
+import { Answer, createQuestion } from "../firebase";
 import {
   StyleSheet,
   Text,
@@ -11,11 +14,10 @@ import {
   Animated,
   Pressable,
   ScrollView,
+  Image,
+  Modal,
 } from "react-native";
-import { Answer, createQuestion } from "../firebase";
-import { Question } from "../screens/CreatePollScreen";
-import FastImage from "./FastImage";
-import LoadingScreen from "./LoadingScreen";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
 
 interface ImageContainerProps {
   pollID: string;
@@ -55,6 +57,7 @@ interface SubmitButtonProps {
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  setLoadingModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const pickImage = async () => {
@@ -176,11 +179,12 @@ const ImagePreview = ({
       ) : questionID === undefined ? (
         <LoadingScreen color="#FFF" />
       ) : (
-        <FastImage
+        <Image
+          // pollID={pollID}
+          // answerImageData={{ answerIndex: index, questionID }}
+          // uri={image}
           style={styles.imageStyle}
-          pollID={pollID}
-          uri={image}
-          answerImageData={{ answerIndex: index, questionID }}
+          source={{ uri: image }}
         />
       )}
       <ImagePreviewButtons
@@ -225,6 +229,7 @@ const SubmitButton = ({
   questions,
   setQuestions,
   setOuterModalVisible,
+  setLoadingModalVisible,
 }: SubmitButtonProps) => {
   const showButton = images.length > 1 && questionText !== "";
   const fadeAnimationRef = useRef(new Animated.Value(0)).current;
@@ -254,6 +259,7 @@ const SubmitButton = ({
         },
       ]}
       onPress={async () => {
+        setLoadingModalVisible(true);
         const answers: Answer[] = [];
         for (const image of images) {
           const answer: Answer = {
@@ -273,12 +279,61 @@ const SubmitButton = ({
         );
         setQuestions(questions.concat([question]));
         setOuterModalVisible(false);
+        setLoadingModalVisible(false);
       }}
     >
       <View style={[styles.centerView, styles.submitButtonContainer]}>
         <Text style={styles.submitButtonText}>Submit</Text>
       </View>
     </AnimatedTouchable>
+  );
+};
+
+const LoadingModal = ({ modalVisible }: { modalVisible: boolean }) => {
+  const [message, setMessage] = useState("Uploading question");
+  useEffect(() => {
+    setTimeout(() => {
+      const endSlice = message.slice(-3);
+      if (endSlice === "...") setMessage("Uploading question");
+      else setMessage(`${message}.`);
+    }, 250);
+  }, [message]);
+
+  return (
+    <Modal visible={modalVisible} animationType="fade" transparent>
+      <View
+        style={[
+          styles.centerView,
+          {
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.centerView,
+            {
+              backgroundColor: "#FFF",
+              width: 300,
+              height: 150,
+              borderRadius: 7.5,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              fontFamily: "Actor_400Regular",
+              fontSize: 25,
+              color: "#D2042D",
+            }}
+          >
+            {message}
+          </Text>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -292,6 +347,7 @@ export default function ImageSelection({
   setOuterModalVisible,
 }: ImageSelectionProps) {
   const [images, setImages] = useState<string[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     if (currQuestion !== undefined)
@@ -335,7 +391,9 @@ export default function ImageSelection({
         questions={questions}
         setQuestions={setQuestions}
         setOuterModalVisible={setOuterModalVisible}
+        setLoadingModalVisible={setModalVisible}
       />
+      <LoadingModal modalVisible={modalVisible} />
     </>
   );
 }

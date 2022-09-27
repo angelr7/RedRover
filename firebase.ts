@@ -31,6 +31,7 @@ import {
   getDoc,
   DocumentData,
   QueryDocumentSnapshot,
+  setDoc,
 } from "firebase/firestore";
 
 let moment = require("moment-timezone");
@@ -172,10 +173,37 @@ const getPolls = async (userID: string): Promise<PollData[]> => {
   } catch (error) {} // do something here
 };
 
-const getQuestionFromData = (docRef: QueryDocumentSnapshot<DocumentData>) => {
+const getQuestionFromData = (docRef: any): Question => {
   const { id } = docRef;
   const { answers, questionText, questionType } = docRef.data();
   return { answers, questionText, questionType, id };
+};
+
+const getImagesFromQuestions = async (
+  docs: QueryDocumentSnapshot<DocumentData>[]
+): Promise<{ uri: string; index: number; questionID: string }[]> => {
+  const images = [];
+  for (let i = 0; i < docs.length; i++) {
+    const document = docs[i];
+    const question = getQuestionFromData(document);
+    const { questionType } = question;
+    if (questionType === "Image Selection" || questionType === "Ranking") {
+      for (let j = 0; j < question.answers.length; j++) {
+        const answer = question.answers[j];
+        if (
+          questionType === "Image Selection" ||
+          answer.answerVariant === "Image Ranking"
+        ) {
+          images.push({
+            questionID: document.id,
+            uri: answer.answerText,
+            index: j,
+          });
+        }
+      }
+    }
+  }
+  return images;
 };
 
 const removePoll = async (
@@ -183,37 +211,40 @@ const removePoll = async (
   hasPreviewImage: boolean,
   isPublished: boolean
 ) => {
-  const deleteQuestions = async (
-    docs: QueryDocumentSnapshot<DocumentData>[]
-  ) => {
-    for (const docRef of docs) {
-      // makes it easier to access w/ TS
-      const data: Question = getQuestionFromData(docRef);
-      if (
-        data.questionType === "Ranking" ||
-        data.questionType === "Image Selection"
-      )
-        // must delete images from questions in the poll
-        await deleteQuestion(pollID, data);
-    }
-  };
-
   try {
     const docs = (await getDocs(collection(db, `polls/${pollID}/questions`)))
       .docs;
-    await deleteQuestions(docs);
+
+    const storage = getStorage();
+    const images = await getImagesFromQuestions(docs);
+    for (const image of images) {
+      console.log(`${pollID}/${image.questionID}/answer${image.index}`);
+
+      const imageRef = ref(
+        storage,
+        `${pollID}/${image.questionID}/answer${image.index}`
+      );
+      await deleteObject(imageRef);
+    }
+
+    for (const document of docs)
+      await deleteDoc(doc(db, `polls/${pollID}/questions/${document.id}`));
 
     if (isPublished) {
-      const docs = (await getDocs(collection(db, `polls/${pollID}/questions`)))
-        .docs;
-      await deleteQuestions(docs);
+      const docs = (
+        await getDocs(collection(db, `published/${pollID}/questions`))
+      ).docs;
+      for (const document of docs)
+        await deleteDoc(
+          doc(db, `published/${pollID}/questions/${document.id}`)
+        );
     }
 
     const pollRef = doc(db, `polls/${pollID}`);
 
     // if the poll has an image, we need to delete that too
     if (hasPreviewImage) {
-      const imageRef = ref(getStorage(), `${pollID}/previewImage`);
+      const imageRef = ref(storage, `${pollID}/previewImage`);
       await deleteObject(imageRef);
     }
 
@@ -294,8 +325,28 @@ const editQuestion = async (
   questionText: string,
   answers: Answer[]
 ) => {
-  const toAdd = { questionType, questionText, answers };
-  await updateDoc(doc(db, `polls/${pollID}/questions/${questionID}`), toAdd);
+  // get question ref
+  const questionRef = doc(db, `polls/${pollID}/questions/${questionID}`);
+  const questionRefData = (await getDoc(questionRef)).data();
+  const question = getQuestionFromData(questionRefData);
+
+  // depending on type, filter answers and take out images
+  const oldQuestionType = question.questionType;
+  const oldAnswers = question.answers;
+  if (oldQuestionType === "Image Selection" || questionType === "Ranking") {
+    const storage = getStorage();
+    for (let i = 0; i < oldAnswers.length; i++)
+      if (
+        (oldQuestionType === "Image Selection" ||
+          oldAnswers[i].answerVariant === "Image Ranking") &&
+        i < answers.length &&
+        (answers[i].answerType !== "Image Selection" ||
+          answers[i].answerVariant !== "Image Ranking")
+      )
+        await deleteObject(ref(storage, `${pollID}/${questionID}/answer${i}`));
+  }
+
+  await updateDoc(questionRef, { questionType, questionText, answers });
   const data: Question = {
     questionText,
     questionType,
@@ -383,15 +434,18 @@ const getQuestions = async (author: string, pollTitle: string) => {
   }
 };
 
-const deleteImagesFromQuestion = async (question: Question) => {
+const deleteImagesFromQuestion = async (pollID: string, question: Question) => {
   const storage = getStorage();
-  for (const answer of question.answers) {
+  for (let i = 0; i < question.answers.length; i++) {
+    const answer = question.answers[0];
     if (
       answer.answerType === "Image Selection" ||
       answer.answerVariant === "Image Ranking"
     ) {
-      // get image ref from the google URI
-      const answerImageRef = ref(storage, answer.answerText);
+      const answerImageRef = ref(
+        storage,
+        `${pollID}/${question.id}/answer${i}`
+      );
       await deleteObject(answerImageRef);
     }
   }
@@ -399,12 +453,10 @@ const deleteImagesFromQuestion = async (question: Question) => {
 
 const deleteQuestion = async (pollID: string, question: Question) => {
   const docRef = doc(db, `polls/${pollID}/questions`, question.id);
+  const { questionType } = question;
   try {
-    if (
-      question.questionType === "Image Selection" ||
-      question.questionType === "Ranking"
-    )
-      await deleteImagesFromQuestion(question);
+    if (questionType === "Image Selection" || questionType === "Ranking")
+      await deleteImagesFromQuestion(pollID, question);
     await deleteDoc(docRef);
   } catch (error) {
     console.log(`Error (poll: ${pollID}, question: ${question.id})`);
@@ -413,19 +465,16 @@ const deleteQuestion = async (pollID: string, question: Question) => {
 
 const publishPoll = async (pollID: string) => {
   const pollData = await getDoc(doc(db, `polls/${pollID}`));
-  const newPollData = await addDoc(
-    collection(db, "published"),
-    pollData.data()
-  );
-  const newQuestionData: Question[] = [];
+  await setDoc(doc(db, "published", pollID), pollData.data());
 
   const questions = (await getDocs(collection(db, `polls/${pollID}/questions`)))
     .docs;
+  const newQuestionData: Question[] = [];
   for (const docRef of questions) {
     const data = docRef.data();
     const { questionType, questionText, answers } = data;
     const newQuestion = await createQuestion(
-      newPollData.id,
+      pollID,
       questionType,
       questionText,
       answers,
@@ -436,7 +485,7 @@ const publishPoll = async (pollID: string) => {
 
   await updateDoc(doc(db, `polls/${pollID}`), { published: true });
 
-  return { newPollData, newQuestionData };
+  return { newQuestionData };
 };
 
 export {
