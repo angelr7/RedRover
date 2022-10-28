@@ -10,6 +10,8 @@ import InitialPrompt from "./InitialPrompt";
 import AddQuestionsModal from "./AddQuestionsModal";
 import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK } from "../constants/localization";
+import { ListEmpty } from "./CreatePolls";
+import { AcceptedLabel } from "../components/PollTypeButton";
 import {
   Answer,
   deleteQuestion,
@@ -17,8 +19,6 @@ import {
   publishPoll,
   UserData,
 } from "../firebase";
-import { ListEmpty } from "./CreatePolls";
-import { AcceptedLabel } from "../components/PollTypeButton";
 import {
   SafeAreaView,
   StyleSheet,
@@ -286,6 +286,9 @@ const PollPreview = ({ userData, pollData, setScreen }: AddQuestionsProps) => {
       style={[
         styles.pollPreviewParent,
         {
+          backgroundColor: "rgb(133, 59, 48)",
+          borderWidth: 2.5,
+          borderColor: "#FFF",
           transform: [
             {
               rotateY: flipAnimationProgress.interpolate({
@@ -721,7 +724,7 @@ const AddQuestions = ({
           >
             <Text
               style={{
-                fontFamily: "Actor_400Regular",
+                fontFamily: "Lato_400Regular",
                 fontSize: 17.5,
                 color: "#FFF",
               }}
@@ -763,8 +766,8 @@ const PublishingPoll = () => {
   return (
     <Text
       style={{
-        fontFamily: "Actor_400Regular",
-        color: "#D2042D",
+        fontFamily: "Lato_400Regular",
+        color: "rgb(133, 59, 48)",
         textAlign: "center",
         fontSize: 25,
       }}
@@ -865,6 +868,7 @@ export default function CreatePollScreen({ route, navigation }) {
               <InitialPrompt
                 keyboardHeight={keyboardHeight}
                 keyboardAnimationVal={keyboardAnimationVal}
+                userData={userData}
                 setScreen={setScreen}
               />
             );
@@ -900,7 +904,7 @@ export default function CreatePollScreen({ route, navigation }) {
               );
             }
           case "Loading":
-            return <LoadingScreen color="#D2042D" />;
+            return <LoadingScreen color="rgb(133, 59, 48)" />;
           default:
             return <View />;
         }
@@ -917,13 +921,14 @@ const styles = StyleSheet.create({
   mainContainer: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
   },
   centerView: {
     justifyContent: "center",
     alignItems: "center",
   },
   addQuestionsScrollView: {
+    backgroundColor: "rgb(133, 59, 48)",
     width: "100%",
     height: "100%",
     paddingLeft: 10,
@@ -931,7 +936,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   addQuestionsModalLabel: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     fontSize: 30,
     textAlign: "center",
@@ -939,7 +944,9 @@ const styles = StyleSheet.create({
   pollQuestionContainer: {
     width: "100%",
     borderRadius: 7.5,
-    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    backgroundColor: "rgb(133, 59, 48)",
+    borderWidth: 2.5,
+    borderColor: "#FFF",
     padding: 10,
   },
   flexRowWrap: {
@@ -956,8 +963,8 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   questionPreviewText: {
-    color: "#D2042D",
-    fontFamily: "Actor_400Regular",
+    color: "rgb(133, 59, 48)",
+    fontFamily: "Lato_400Regular",
   },
   questionPreviewBanner: {
     position: "absolute",
@@ -969,7 +976,7 @@ const styles = StyleSheet.create({
   bannerContainer1: {
     width: "200%",
     height: 17.5,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     transform: [{ rotate: "-45deg" }],
     borderTopRightRadius: 20,
     borderTopLeftRadius: 20,
@@ -984,7 +991,7 @@ const styles = StyleSheet.create({
   bannerText: {
     color: "#FFF",
     fontSize: 7.5,
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
   },
   questionPreviewBackside: {
     width: "100%",
@@ -995,11 +1002,11 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 5,
     borderWidth: 1,
-    borderColor: "#D2042D",
+    borderColor: "rgb(133, 59, 48)",
     borderRadius: 5,
   },
   questionPreviewButtonText: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   pollPreviewParent: {
     width: "100%",
@@ -1022,12 +1029,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   pollPreviewTitle: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     fontSize: 25,
   },
   displayDate: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     fontSize: 15,
   },
@@ -1038,7 +1045,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   pollPreviewDescription: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     fontSize: 15,
     lineHeight: 25,
@@ -1063,25 +1070,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   pollPreviewButtonText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 15,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   closeButtonStyle: {
     fontSize: 25,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   editQuestionHeading: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 35,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     marginTop: 10,
     alignSelf: "center",
   },
   outerRed: {
     width: "100%",
     borderRadius: 7.5,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
   },
   innerRed: {
     width: "100%",
@@ -1091,9 +1098,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   editModalHeading: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   // modalBackdrop: {
   //   width: SCREEN_WIDTH,

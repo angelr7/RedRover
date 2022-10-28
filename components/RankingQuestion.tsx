@@ -139,7 +139,7 @@ const VariantButtonContainer = ({
           <Text
             style={[
               styles.buttonText,
-              variant === "Text Ranking" && { color: "#D2042D" },
+              variant === "Text Ranking" && { color: "rgb(133, 59, 48)" },
             ]}
           >
             Text Ranking
@@ -155,7 +155,7 @@ const VariantButtonContainer = ({
           <Text
             style={[
               styles.buttonText,
-              variant === "Image Ranking" && { color: "#D2042D" },
+              variant === "Image Ranking" && { color: "rgb(133, 59, 48)" },
             ]}
           >
             Image Ranking
@@ -555,12 +555,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   heading: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     fontSize: 17.5,
   },
   outerContainer: {
     width: "100%",
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
   },
   innerContainer: {
@@ -581,11 +581,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   outerRed: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     width: "100%",
     borderRadius: 7.5,
   },
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   },
   addButton1: {
     fontSize: 50,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   addButton2: {
     fontSize: 50,
@@ -626,14 +626,14 @@ const styles = StyleSheet.create({
     width: "75%",
   },
   modalHeading: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 30,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     alignSelf: "center",
   },
   modalSubheading: {
     fontSize: 17.5,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   modalTextInput: {
     color: "#FFF",
@@ -647,11 +647,11 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   buttonMask: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     alignSelf: "center",
     borderRadius: 5,
   },
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   itemPreviewText: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     fontSize: 12.5,
     textAlign: "center",
   },
@@ -686,17 +686,17 @@ const styles = StyleSheet.create({
   backsideButtonContainer: {
     padding: 5,
     borderRadius: 5,
-    borderColor: "#D2042D",
+    borderColor: "rgb(133, 59, 48)",
     borderWidth: 1,
     width: 60,
     alignSelf: "center",
   },
   backsideButtonText: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     textAlign: "center",
   },
   modalSubmitButtonOuterContainer: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 5,
     alignSelf: "center",
   },
@@ -707,6 +707,6 @@ const styles = StyleSheet.create({
   },
   modalSubmitButtonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
   },
 });

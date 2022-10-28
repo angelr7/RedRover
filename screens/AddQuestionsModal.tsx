@@ -214,14 +214,19 @@ export default function AddQuestionsModal({
               <Text
                 style={{
                   fontSize: 17.5,
-                  color: "#D2042D",
-                  fontFamily: "Actor_400Regular",
+                  color: "rgb(133, 59, 48)",
+                  fontFamily: "Lato_400Regular",
                 }}
               >
                 Question Text
               </Text>
               <Spacer width="100%" height={10} />
-              <View style={{ backgroundColor: "#D2042D", borderRadius: 7.5 }}>
+              <View
+                style={{
+                  backgroundColor: "rgb(133, 59, 48)",
+                  borderRadius: 7.5,
+                }}
+              >
                 <TextInput
                   placeholder={placeholder}
                   placeholderTextColor="#FFF"
@@ -242,8 +247,8 @@ export default function AddQuestionsModal({
               <Text
                 style={{
                   fontSize: 17.5,
-                  color: "#D2042D",
-                  fontFamily: "Actor_400Regular",
+                  color: "rgb(133, 59, 48)",
+                  fontFamily: "Lato_400Regular",
                 }}
               >
                 What type of question will this be?
@@ -290,9 +295,9 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     alignSelf: "center",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 40,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   questionTextInput: {
     width: "100%",
@@ -307,7 +312,7 @@ const styles = StyleSheet.create({
   buttonContainer1: {
     width: "100%",
     minHeight: 100,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
   },
   buttonContainer2: {

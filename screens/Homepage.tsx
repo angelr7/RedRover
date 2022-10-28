@@ -6,7 +6,7 @@ import {
   Animated,
   TouchableOpacity,
 } from "react-native";
-import { useFonts, Actor_400Regular } from "@expo-google-fonts/actor";
+import { useFonts, Lato_400Regular } from "@expo-google-fonts/actor";
 import { useEffect, useRef, useState } from "react";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
 import Spacer from "../components/Spacer";
@@ -56,7 +56,7 @@ const handleLoadIn = (
 };
 
 export default function Homepage({ navigation }) {
-  const [fontsLoaded] = useFonts({ Actor_400Regular });
+  const [fontsLoaded] = useFonts({ Lato_400Regular });
   const flyupAnimationProgress = useRef(new Animated.Value(0)).current;
   const buttonAnimationProgress = useRef(new Animated.Value(0)).current;
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   bigLogoText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 200,
     color: "#507DBC",
   },
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 30,
   },
   buttonContainer: {

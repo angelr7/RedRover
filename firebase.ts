@@ -52,7 +52,7 @@ interface PollData {
 
 type MCAnswerVariant = "Free Response" | "Fixed Response";
 type RankingAnswerVariant = "Text Ranking" | "Image Ranking";
-type NumberAnswerVariant = "Percentage" | "Number";
+type NumberAnswerVariant = "Percentage" | "Number" | "Dollars";
 type ImageSelectionVariant = "undefined";
 type AnswerVariant =
   | MCAnswerVariant
@@ -488,6 +488,17 @@ const publishPoll = async (pollID: string) => {
   return { newQuestionData };
 };
 
+const getAllPolls = async () => {
+  return (await getDocs(collection(db, "published"))).docs;
+};
+
+const getPublishedQuestions = async (pollID: string) => {
+  const { docs } = await getDocs(
+    collection(db, `published/${pollID}/questions`)
+  );
+  return docs.map((doc) => getQuestionFromData(doc));
+};
+
 export {
   initUser,
   db,
@@ -502,5 +513,7 @@ export {
   deleteQuestion,
   editQuestion,
   publishPoll,
+  getAllPolls,
+  getPublishedQuestions
 };
 export type { UserData, PollData, Answer };

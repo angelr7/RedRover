@@ -412,7 +412,7 @@ const AddAnswerModal = ({
                 styles.variantButtonContainer,
                 {
                   backgroundColor:
-                    freeResponse === false ? "#D2042D" : "transparent",
+                    freeResponse === false ? "rgb(133, 59, 48)" : "transparent",
                 },
               ]}
             >
@@ -420,7 +420,7 @@ const AddAnswerModal = ({
                 style={[
                   styles.variantButtonText,
                   {
-                    color: freeResponse === false ? "#FFF" : "#D2042D",
+                    color: freeResponse === false ? "#FFF" : "rgb(133, 59, 48)",
                   },
                 ]}
               >
@@ -434,7 +434,7 @@ const AddAnswerModal = ({
               style={[
                 styles.variantButtonContainer,
                 {
-                  backgroundColor: freeResponse ? "#D2042D" : "transparent",
+                  backgroundColor: freeResponse ? "rgb(133, 59, 48)" : "transparent",
                 },
               ]}
             >
@@ -442,7 +442,7 @@ const AddAnswerModal = ({
                 style={[
                   styles.variantButtonText,
                   {
-                    color: freeResponse ? "#FFF" : "#D2042D",
+                    color: freeResponse ? "#FFF" : "rgb(133, 59, 48)",
                   },
                 ]}
               >
@@ -467,7 +467,7 @@ const AddAnswerModal = ({
             }}
             style={styles.answerTextInput}
             placeholder={placeholder}
-            placeholderTextColor={"#D2042D"}
+            placeholderTextColor={"rgb(133, 59, 48)"}
           />
           <Spacer width="100%" height={10} />
           <View style={styles.answerModalBottomButtons}>
@@ -483,7 +483,7 @@ const AddAnswerModal = ({
                 style={[
                   styles.variantButtonContainer,
                   {
-                    backgroundColor: "#D2042D",
+                    backgroundColor: "rgb(133, 59, 48)",
                   },
                 ]}
               >
@@ -520,7 +520,7 @@ export default function MultipleChoice({
 
   handleAnimations(riseAnimationProgress, answerInput);
 
-  if (pollID === undefined) return <LoadingScreen color="#D2042D" />;
+  if (pollID === undefined) return <LoadingScreen color="rgb(133, 59, 48)" />;
 
   return (
     <>
@@ -601,13 +601,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalHeadingText: {
-    fontFamily: "Actor_400Regular",
-    color: "#D2042D",
+    fontFamily: "Lato_400Regular",
+    color: "rgb(133, 59, 48)",
     fontSize: 17.5,
   },
   addAnswerButton1: {
     fontSize: 50,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   addAnswerButton2: {
     fontSize: 50,
@@ -628,8 +628,8 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: 30,
-    fontFamily: "Actor_400Regular",
-    color: "#D2042D",
+    fontFamily: "Lato_400Regular",
+    color: "rgb(133, 59, 48)",
     alignSelf: "center",
   },
   answerVariantContainer: {
@@ -641,22 +641,22 @@ const styles = StyleSheet.create({
   variantButtonContainer: {
     padding: 10,
     borderWidth: 1,
-    borderColor: "#D2042D",
+    borderColor: "rgb(133, 59, 48)",
     borderRadius: 5,
   },
   variantButtonText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   answerTextInput: {
     width: "100%",
     minHeight: 50,
     borderWidth: 1,
-    borderColor: "#D2042D",
+    borderColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
     textAlign: "center",
-    color: "#D2042D",
-    fontFamily: "Actor_400Regular",
+    color: "rgb(133, 59, 48)",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   answerModalBottomButtons: {
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     fontSize: 12.5,
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
   },
   answerTextContainer: {
     width: "100%",
@@ -692,13 +692,13 @@ const styles = StyleSheet.create({
     width: "100%",
     maxHeight: "100%",
     textAlign: "center",
-    color: "#D2042D",
-    fontFamily: "Actor_400Regular",
+    color: "rgb(133, 59, 48)",
+    fontFamily: "Lato_400Regular",
     fontSize: 12.5,
   },
   answerPreviewHolder: {
     width: "100%",
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
   },
   answerPreviewHolderInner: {
@@ -719,12 +719,12 @@ const styles = StyleSheet.create({
   answerPreviewButtonContainer: {
     padding: 5,
     borderRadius: 5,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     transform: [{ scaleX: -1 }],
     width: "60%",
   },
   submitButtonContainer: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 5,
     width: 75,
     alignSelf: "center",
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: 17.5,
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
   },
 });

@@ -11,6 +11,7 @@ import { auth, getUserData } from "../firebase";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import { StatusBar } from "expo-status-bar";
+import AdminPollScreen from "./AdminPollScreen";
 
 const BottomTabs = createBottomTabNavigator();
 
@@ -148,7 +149,7 @@ export default function UserHomeScreen({ navigation }) {
       style={[
         styles.container,
         styles.centerView,
-        userData.admin && { backgroundColor: "#D2042D" },
+        { backgroundColor: userData.admin ? "#853b30" : "#afc9f9" },
       ]}
     >
       <BottomTabs.Navigator
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     alignItem: "center",
   },
   labelText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     marginTop: 8,
   },

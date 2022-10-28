@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 
-type NumberAnswerVariant = "Percentage" | "Number";
+type NumberAnswerVariant = "Percentage" | "Number" | "Dollars";
 interface VariantButtonContainerProps {
   variant: NumberAnswerVariant;
   setVariant: React.Dispatch<React.SetStateAction<NumberAnswerVariant>>;
@@ -35,6 +35,7 @@ interface NumberAnswerProps {
   setOuterModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
 }
 interface RangeInputContainerProps {
+  showDollarSign: boolean;
   scrollViewRef: React.MutableRefObject<ScrollView>;
   inputVal1: string;
   inputVal2: string;
@@ -114,7 +115,7 @@ const VariantButtonContainer = ({
   variant,
   setVariant,
 }: VariantButtonContainerProps) => {
-  const selectedButtonText = { color: "#D2042D" };
+  const selectedButtonText = { color: "rgb(133, 59, 48)" };
   const selectedButtonContainer = { backgroundColor: "#FFF" };
 
   return (
@@ -150,6 +151,22 @@ const VariantButtonContainer = ({
             ]}
           >
             Number
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setVariant("Dollars")}
+          style={[
+            styles.buttonContainer,
+            variant === "Dollars" && selectedButtonContainer,
+          ]}
+        >
+          <Text
+            style={[
+              styles.buttonText,
+              variant === "Dollars" && selectedButtonText,
+            ]}
+          >
+            Dollars
           </Text>
         </TouchableOpacity>
       </View>
@@ -220,6 +237,7 @@ const RangeSliders = ({
 };
 
 const RangeInputs = ({
+  showDollarSign,
   scrollViewRef,
   inputVal1,
   inputVal2,
@@ -239,40 +257,72 @@ const RangeInputs = ({
     <>
       <View style={[styles.rangeInputContainer, { width: "100%" }]}>
         <Text style={styles.innerContainerText}>Min Value</Text>
-        <Spacer width={20} height="100%" />
-        <TextInput
-          style={styles.textInput}
-          value={inputVal1}
-          placeholder={placeholder1}
-          keyboardType="number-pad"
-          selectionColor={"#D2042D"}
-          placeholderTextColor={"#D2042D"}
-          onChangeText={(text) => setInputVal1(text)}
-          onFocus={() => {
-            setPlaceholder1("");
-            scrollViewRef.current.scrollToEnd({ animated: true });
-          }}
-          onBlur={() => setPlaceholder1("Enter a number...")}
-        />
+        <Spacer width={showDollarSign ? 15 : 20} height="100%" />
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+          {showDollarSign && (
+            <>
+              <Text
+                style={{
+                  color: "#FFF",
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 17.5,
+                }}
+              >
+                $
+              </Text>
+              <Spacer width={5} height={"100%"} />
+            </>
+          )}
+          <TextInput
+            style={styles.textInput}
+            value={inputVal1}
+            placeholder={placeholder1}
+            keyboardType="number-pad"
+            selectionColor={"rgb(133, 59, 48)"}
+            placeholderTextColor={"rgb(133, 59, 48)"}
+            onChangeText={(text) => setInputVal1(text)}
+            onFocus={() => {
+              setPlaceholder1("");
+              scrollViewRef.current.scrollToEnd({ animated: true });
+            }}
+            onBlur={() => setPlaceholder1("Enter a number...")}
+          />
+        </View>
       </View>
       <Spacer width="100%" height={20} />
       <View style={[styles.rangeInputContainer, { width: "100%" }]}>
         <Text style={styles.innerContainerText}>Max Value</Text>
-        <Spacer width={20} height="100%" />
-        <TextInput
-          style={styles.textInput}
-          value={inputVal2}
-          placeholder={placeholder2}
-          keyboardType="number-pad"
-          selectionColor={"#D2042D"}
-          placeholderTextColor={"#D2042D"}
-          onChangeText={(text) => setInputVal2(text)}
-          onFocus={() => {
-            setPlaceholder2("");
-            scrollViewRef.current.scrollToEnd({ animated: true });
-          }}
-          onBlur={() => setPlaceholder2("Enter a number...")}
-        />
+        <Spacer width={showDollarSign ? 15 : 20} height="100%" />
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+          {showDollarSign && (
+            <>
+              <Text
+                style={{
+                  color: "#FFF",
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 17.5,
+                }}
+              >
+                $
+              </Text>
+              <Spacer width={5} height={"100%"} />
+            </>
+          )}
+          <TextInput
+            style={styles.textInput}
+            value={inputVal2}
+            placeholder={placeholder2}
+            keyboardType="number-pad"
+            selectionColor={"rgb(133, 59, 48)"}
+            placeholderTextColor={"rgb(133, 59, 48)"}
+            onChangeText={(text) => setInputVal2(text)}
+            onFocus={() => {
+              setPlaceholder2("");
+              scrollViewRef.current.scrollToEnd({ animated: true });
+            }}
+            onBlur={() => setPlaceholder2("Enter a number...")}
+          />
+        </View>
       </View>
     </>
   );
@@ -380,6 +430,7 @@ export default function NumberAnswer({
                     setInputVal1={setInputVal1}
                     setInputVal2={setInputVal2}
                     setInputFocused={setInputFocused}
+                    showDollarSign={variant === "Dollars"}
                   />
                 )}
               </View>
@@ -436,12 +487,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   heading: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   outerRed: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     width: "100%",
     borderRadius: 7.5,
   },
@@ -456,6 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-evenly",
     alignItems: "center",
+    flex: 1,
   },
   buttonContainer: {
     padding: 10,
@@ -465,12 +517,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   innerContainerText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
     width: 80,
   },
@@ -493,12 +545,12 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   outerSubmitButtonContainer: {
     alignSelf: "center",
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 5,
   },
   textInput: {
@@ -506,7 +558,7 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 5,
     backgroundColor: "#FFF",
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     textAlign: "center",
     padding: 10,
   },

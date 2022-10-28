@@ -89,8 +89,8 @@ const showToast = (message: string) => {
       opacity: 1,
     },
     textStyle: {
-      fontFamily: "Actor_400Regular",
-      color: "#D2042D",
+      fontFamily: "Lato_400Regular",
+      color: "rgb(133, 59, 48)",
       fontSize: 17.5,
       lineHeight: 25,
     },
@@ -432,7 +432,7 @@ const EditDescriptionModal = ({
                     modalDescription.length <= 500
                       ? "rgba(89, 89, 89, 0.5)"
                       : "#F00",
-                  fontFamily: "Actor_400Regular",
+                  fontFamily: "Lato_400Regular",
                 }}
               >
                 {modalDescription.length}/500
@@ -509,7 +509,7 @@ const AdditionalInformationDetail = ({
           }),
           backgroundColor: riseAnimation.interpolate({
             inputRange: [0, 1],
-            outputRange: ["rgb(114, 47, 55)", "rgb(255, 255, 255)"],
+            outputRange: ["rgb(133, 59, 48)", "rgb(255, 255, 255)"],
           }),
           transform: [
             {
@@ -528,7 +528,8 @@ const AdditionalInformationDetail = ({
           additionalInfo === "" && {
             height: 150,
             opacity: 1,
-            backgroundColor: "rgba(114, 47, 55, 0.5)",
+            borderWidth: 2.5,
+            borderColor: "#FFF",
           },
       ]}
     >
@@ -548,14 +549,14 @@ const AdditionalInformationDetail = ({
         <TextInput
           value={additionalInfo}
           multiline={true}
-          selectionColor="#D2042D"
+          selectionColor="rgb(133, 59, 48)"
           editable={editing}
           ref={(ref) => {
             textInputRef.current = ref;
           }}
           style={[
             styles.additionalInfoInput,
-            { color: editing && !useWhite ? "#D2042D" : "#FFF" },
+            { color: editing && !useWhite ? "rgb(133, 59, 48)" : "#FFF" },
           ]}
           onChangeText={(text) => {
             setAdditionalInfo(text);
@@ -793,7 +794,7 @@ const SubmitButton = ({
       }}
       style={[styles.submitButtonContainer, styles.centerView]}
     >
-      <Text style={{ fontSize: 15, color: "#D2042D" }}>
+      <Text style={{ fontSize: 15, color: "rgb(133, 59, 48)" }}>
         {description === "" ? "Create Draft" : "Save Changes"}
       </Text>
     </TouchableOpacity>
@@ -833,7 +834,7 @@ export default function SetDescriptionInformation({
 
   return (
     <ScrollView
-      style={styles.androidSafeView}
+      style={[styles.androidSafeView, { backgroundColor: "#853b30" }]}
       ref={(ref) => (scrollViewRef.current = ref)}
       scrollEventThrottle={20}
       showsVerticalScrollIndicator={false}
@@ -926,7 +927,7 @@ const styles = StyleSheet.create({
     fontSize: 25,
   },
   headingText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     marginLeft: 10,
     fontSize: 20,
@@ -938,7 +939,8 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     width: SCREEN_WIDTH - 20,
     minHeight: 150,
-    backgroundColor: "rgba(114, 47, 55, 0.5)",
+    borderWidth: 2.5,
+    borderColor: "#FFF",
     marginTop: 10,
     alignSelf: "center",
     borderRadius: 7.5,
@@ -947,7 +949,7 @@ const styles = StyleSheet.create({
   mainDescriptionText: {
     fontSize: 15,
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     textAlign: "justify",
   },
   modalContainer: {
@@ -961,8 +963,8 @@ const styles = StyleSheet.create({
     borderRadius: 7.5,
   },
   modalHeading: {
-    fontFamily: "Actor_400Regular",
-    color: "#D2042D",
+    fontFamily: "Lato_400Regular",
+    color: "rgb(133, 59, 48)",
     fontSize: 20,
     marginTop: 10,
     marginBottom: 10,
@@ -970,13 +972,13 @@ const styles = StyleSheet.create({
   },
   modalInputStyle: {
     minHeight: 40,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
     width: 260,
     alignSelf: "center",
     marginBottom: 10,
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 16,
     lineHeight: 20,
     paddingTop: 10,
@@ -988,14 +990,14 @@ const styles = StyleSheet.create({
   modalButton: {
     alignSelf: "center",
     marginBottom: 10,
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     width: 100,
     height: 40,
     borderRadius: 7.5,
   },
   modalButtonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 20,
   },
   additionalInfoContainer: {
@@ -1010,7 +1012,7 @@ const styles = StyleSheet.create({
     minHeight: 130,
     maxHeight: 380,
     fontSize: 17.5,
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
   },
   pressableCover: {
     width: SCREEN_WIDTH - 20,
@@ -1030,6 +1032,8 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: "#FFF",
     borderRadius: 7.5,
+    borderWidth: 2.5,
+    borderColor: "#FFF",
     padding: 7.5,
   },
   androidSafeView: {

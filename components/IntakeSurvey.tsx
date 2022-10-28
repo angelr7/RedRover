@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgb(80, 125, 188)",
   },
   promptText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "#FFF",
     fontSize: 30,
     textAlign: "center",
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   buttonText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     color: "rgb(80, 125, 188)",
   },
 });

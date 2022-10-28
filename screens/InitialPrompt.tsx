@@ -10,11 +10,13 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
+import { UserData } from "../firebase";
 
 interface InitialPromptProps {
   keyboardHeight: number;
   keyboardAnimationVal: Animated.Value;
   setScreen: React.Dispatch<React.SetStateAction<LocalPageScreen>>;
+  userData: UserData;
 }
 
 const handleIntialPromptAnimations = (
@@ -64,6 +66,7 @@ const handleIntialPromptAnimations = (
 export default function InitialPrompt({
   keyboardHeight,
   keyboardAnimationVal,
+  userData,
   setScreen,
 }: InitialPromptProps) {
   const initialFadeProgress = useRef(new Animated.Value(0)).current;
@@ -85,7 +88,13 @@ export default function InitialPrompt({
   );
 
   return (
-    <SafeAreaView style={[styles.mainContainer, styles.centerView]}>
+    <SafeAreaView
+      style={[
+        styles.mainContainer,
+        styles.centerView,
+        { backgroundColor: userData.admin ? "#853b30" : "#afc9f9" },
+      ]}
+    >
       <Animated.View
         style={[
           styles.centerView,
@@ -132,7 +141,11 @@ export default function InitialPrompt({
           }}
         >
           <TextInput
-            style={[styles.inputStyle]}
+            style={[
+              styles.inputStyle,
+              { color: userData.admin ? "#853b30" : "#afc9f9" },
+            ]}
+            selectionColor={"rgb(133, 59, 48, 255)"}
             value={inputVal}
             autoCapitalize="words"
             onChangeText={(str) => {
@@ -150,11 +163,23 @@ export default function InitialPrompt({
             styles.button,
             styles.centerView,
             {
-              backgroundColor: inputVal === "" ? "#D2042D" : "#FFF",
+              backgroundColor:
+                inputVal === ""
+                  ? userData.admin
+                    ? "#853b30"
+                    : "#afc9f9"
+                  : "#FFF",
             },
           ]}
         >
-          <Text style={styles.buttonText}>Next</Text>
+          <Text
+            style={[
+              styles.buttonText,
+              { color: userData.admin ? "#853b30" : "#afc9f9" },
+            ]}
+          >
+            Next
+          </Text>
         </AnimatedTouchable>
       </Animated.View>
       <StatusBar style="light" />
@@ -170,11 +195,11 @@ const styles = StyleSheet.create({
   mainContainer: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)"
   },
   bigPromptText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 40,
     textAlign: "center",
   },
@@ -184,10 +209,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     paddingLeft: 10,
     paddingRight: 10,
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 20,
     textAlign: "center",
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)"
   },
   button: {
     width: 100,
@@ -195,8 +220,8 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   buttonText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 25,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)"
   },
 });

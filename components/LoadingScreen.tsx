@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: 100,
-    color: "#507DBC",
-    fontFamily: "Actor_400Regular",
+    color: "#afc9f9",
+    fontFamily: "Lato_400Regular",
   },
 });

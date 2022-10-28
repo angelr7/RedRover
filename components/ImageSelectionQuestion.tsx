@@ -17,7 +17,6 @@ import {
   Image,
   Modal,
 } from "react-native";
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
 
 interface ImageContainerProps {
   pollID: string;
@@ -324,9 +323,9 @@ const LoadingModal = ({ modalVisible }: { modalVisible: boolean }) => {
         >
           <Text
             style={{
-              fontFamily: "Actor_400Regular",
+              fontFamily: "Lato_400Regular",
               fontSize: 25,
-              color: "#D2042D",
+              color: "rgb(133, 59, 48)",
             }}
           >
             {message}
@@ -404,11 +403,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   heading: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     fontSize: 17.5,
   },
   outerRed: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     width: "100%",
     borderRadius: 7.5,
   },
@@ -423,7 +422,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   addButton1: {
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     fontSize: 50,
   },
   addButton2: {
@@ -455,17 +454,17 @@ const styles = StyleSheet.create({
   imagePreviewButtonContainer: {
     borderWidth: 1,
     borderRadius: 5,
-    borderColor: "#D2042D",
+    borderColor: "rgb(133, 59, 48)",
     width: 60,
     padding: 5,
   },
   imagePreviewButtonText: {
-    color: "#D2042D",
-    fontFamily: "Actor_400Regular",
+    color: "rgb(133, 59, 48)",
+    fontFamily: "Lato_400Regular",
     fontSize: 15,
   },
   submitButtonWrapper: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     alignSelf: "center",
     borderRadius: 5,
   },
@@ -476,7 +475,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
 });

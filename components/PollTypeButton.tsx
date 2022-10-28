@@ -56,7 +56,7 @@ export default function PollTypeButton({
                 name={iconName}
                 style={[
                   styles.iconStyle,
-                  { color: selected ? "#D2042D" : "#FFF" },
+                  { color: selected ? "rgb(133, 59, 48)" : "#FFF" },
                   iconStyle,
                 ]}
               />
@@ -68,7 +68,7 @@ export default function PollTypeButton({
                   name={"sort-numeric-up"}
                   style={[
                     styles.iconStyle,
-                    { color: selected ? "#D2042D" : "#FFF" },
+                    { color: selected ? "rgb(133, 59, 48)" : "#FFF" },
                     iconStyle,
                   ]}
                 />
@@ -78,7 +78,7 @@ export default function PollTypeButton({
                     styles.iconStyle,
                     {
                       position: "absolute",
-                      color: selected ? "#D2042D" : "#FFF",
+                      color: selected ? "rgb(133, 59, 48)" : "#FFF",
                     },
                     iconStyle,
                   ]}
@@ -92,7 +92,7 @@ export default function PollTypeButton({
                 name={iconName}
                 style={[
                   styles.iconStyle,
-                  { color: selected ? "#D2042D" : "#FFF" },
+                  { color: selected ? "rgb(133, 59, 48)" : "#FFF" },
                   iconStyle,
                 ]}
               />
@@ -103,7 +103,7 @@ export default function PollTypeButton({
       <Text
         style={[
           styles.buttonTextStyle,
-          { color: selected ? "#D2042D" : "#FFF" },
+          { color: selected ? "rgb(133, 59, 48)" : "#FFF" },
           textStyle,
         ]}
       >
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   buttonTextStyle: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
 });

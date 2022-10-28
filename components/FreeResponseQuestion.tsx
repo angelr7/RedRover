@@ -184,10 +184,10 @@ export default function FreeResponse({
 const styles = StyleSheet.create({
   heading: {
     fontSize: 17.5,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   inputWrapper: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     borderRadius: 7.5,
   },
   inputStyle: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     padding: 10,
     minHeight: 100,
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
     textAlign: "center",
   },
@@ -208,11 +208,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 17.5,
   },
   wineShade: {
-    backgroundColor: "#D2042D",
+    backgroundColor: "rgb(133, 59, 48)",
     alignSelf: "center",
     borderRadius: 5,
   },

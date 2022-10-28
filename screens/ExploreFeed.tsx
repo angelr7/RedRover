@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   titleText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 30,
     textAlign: "center",
     color: "#507DBC",

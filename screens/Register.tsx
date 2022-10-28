@@ -8,7 +8,7 @@ import {
   Animated,
   TouchableOpacity,
 } from "react-native";
-import { useFonts, Actor_400Regular } from "@expo-google-fonts/actor";
+import { useFonts, Lato_400Regular } from "@expo-google-fonts/actor";
 import React, { ReactElement, useEffect, useRef, useState } from "react";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import Spacer from "../components/Spacer";
@@ -53,7 +53,7 @@ const showToast = (message: string) => {
       paddingLeft: 10,
     },
     textStyle: {
-      fontFamily: "Actor_400Regular",
+      fontFamily: "Lato_400Regular",
       fontSize: 17.5,
       lineHeight: 25,
     },
@@ -280,7 +280,7 @@ const handleKeyboardAnimations = (
 };
 
 export default function Register({ navigation }) {
-  const [fontsLoaded] = useFonts({ Actor_400Regular });
+  const [fontsLoaded] = useFonts({ Lato_400Regular });
   const moveUpAnimationProgress = useRef(new Animated.Value(0)).current;
   const errorMessageAnimationProgress = useRef(new Animated.Value(0)).current;
 
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   questionText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 40,
     alignSelf: "center",
     textAlign: "center",
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#DAE3E5",
     borderRadius: 5,
     textAlign: "center",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 20,
     paddingLeft: 4,
     paddingRight: 4,
@@ -446,12 +446,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFF",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 20,
   },
   errorMessage: {
     color: "#F00",
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     position: "absolute",
     zIndex: 1,
     top: -16,

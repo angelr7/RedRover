@@ -46,7 +46,7 @@ const ListEmpty = () => {
             color: "#FFF",
             fontSize: 25,
             textAlignVertical: "center",
-            fontFamily: "Actor_400Regular",
+            fontFamily: "Lato_400Regular",
           }}
         >
           {"Nothing to see here! "}
@@ -77,11 +77,11 @@ const PollPreview = ({
         {
           backgroundColor: flipAnimationProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: ["rgb(255, 255, 255)", "rgb(210, 4, 45)"],
+            outputRange: ["rgb(255, 255, 255)", "rgb(133, 59, 48)"],
           }),
           borderColor: flipAnimationProgress.interpolate({
             inputRange: [0, 1],
-            outputRange: ["rgb(210, 4, 45)", "rgb(255, 255, 255)"],
+            outputRange: ["rgb(133, 59, 48)", "rgb(255, 255, 255)"],
           }),
           transform: [
             {
@@ -186,7 +186,7 @@ const PollPreview = ({
             <Text
               style={{
                 color: "#FFF",
-                fontFamily: "Actor_400Regular",
+                fontFamily: "Lato_400Regular",
               }}
               ellipsizeMode="tail"
             >
@@ -224,7 +224,7 @@ const PollPreview = ({
             <Text
               style={{
                 color: "#FFF",
-                fontFamily: "Actor_400Regular",
+                fontFamily: "Lato_400Regular",
                 maxWidth: "90%",
               }}
               ellipsizeMode="tail"
@@ -249,12 +249,14 @@ const PollPreview = ({
                 fontSize: 50,
                 transform: [{ scaleX: -1 }],
                 left: 3,
-                color: "#D2042D",
+                color: "rgb(133, 59, 48)",
               }}
             >
               R
             </Text>
-            <Text style={{ fontSize: 50, right: 3, color: "#D2042D" }}>R</Text>
+            <Text style={{ fontSize: 50, right: 3, color: "rgb(133, 59, 48)" }}>
+              R
+            </Text>
           </View>
         </Animated.View>
       )}
@@ -277,8 +279,8 @@ const PollPreview = ({
         >
           <Text
             style={{
-              color: "#D2042D",
-              fontFamily: "Actor_400Regular",
+              color: "rgb(133, 59, 48)",
+              fontFamily: "Lato_400Regular",
               fontSize: 12,
               textAlign: "center",
             }}
@@ -303,8 +305,8 @@ const PollPreview = ({
         >
           <Text
             style={{
-              color: "#D2042D",
-              fontFamily: "Actor_400Regular",
+              color: "rgb(133, 59, 48)",
+              fontFamily: "Lato_400Regular",
               fontSize: 12,
               textAlign: "center",
             }}
@@ -357,15 +359,15 @@ const DeleteMessageModal = ({
           >
             <FontAwesome5
               name="trash-alt"
-              style={{ fontSize: 30, color: "#D2042D" }}
+              style={{ fontSize: 30, color: "rgb(133, 59, 48)" }}
             />
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  color: "#D2042D",
+                  color: "rgb(133, 59, 48)",
                   alignSelf: "center",
                   fontSize: 27.5,
-                  fontFamily: "Actor_400Regular",
+                  fontFamily: "Lato_400Regular",
                 }}
               >
                 {"Delete Draft?"}
@@ -399,7 +401,7 @@ const DeleteMessageModal = ({
               <Text
                 style={{
                   color: "#FFF",
-                  fontFamily: "Actor_400Regular",
+                  fontFamily: "Lato_400Regular",
                   fontSize: 15,
                 }}
               >
@@ -426,7 +428,7 @@ const DeleteMessageModal = ({
               <Text
                 style={{
                   color: "#F00",
-                  fontFamily: "Actor_400Regular",
+                  fontFamily: "Lato_400Regular",
                   fontSize: 15,
                 }}
               >
@@ -478,7 +480,7 @@ export default function LandingScreen({ route, navigation }) {
     });
   });
 
-  if (polls === undefined) return <LoadingScreen color="#D2042D" />;
+  if (polls === undefined) return <LoadingScreen color="rgb(133, 59, 48)" />;
 
   return (
     <SafeAreaView style={[styles.mainContainer, styles.centerView]}>
@@ -487,12 +489,33 @@ export default function LandingScreen({ route, navigation }) {
         contentContainerStyle={styles.centerView}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.titleText}>Create Polls</Text>
+        <Text
+          style={[
+            styles.titleText,
+            { color: userData.admin ? "#853b30" : "#afc9f9" },
+          ]}
+        >
+          Create Polls
+        </Text>
         <Spacer width="100%" height={25} />
 
-        <Text style={styles.headingText}>My Polls</Text>
+        <Text
+          style={[
+            styles.headingText,
+            { color: userData.admin ? "#853b30" : "#afc9f9" },
+          ]}
+        >
+          My Polls
+        </Text>
         <View
-          style={[styles.flatListContainer, styles.centerView, { padding: 5 }]}
+          style={[
+            styles.flatListContainer,
+            styles.centerView,
+            {
+              padding: 5,
+              backgroundColor: userData.admin ? "#853b30" : "#afc9f9",
+            },
+          ]}
         >
           {published.length === 0 ? (
             <ListEmpty />
@@ -521,9 +544,23 @@ export default function LandingScreen({ route, navigation }) {
         </View>
         <Spacer width="100%" height={50} />
 
-        <Text style={styles.headingText}>My Drafts</Text>
+        <Text
+          style={[
+            styles.headingText,
+            { color: userData.admin ? "#853b30" : "#afc9f9" },
+          ]}
+        >
+          My Drafts
+        </Text>
         <View
-          style={[styles.flatListContainer, styles.centerView, { padding: 10 }]}
+          style={[
+            styles.flatListContainer,
+            styles.centerView,
+            {
+              padding: 10,
+              backgroundColor: userData.admin ? "#853b30" : "#afc9f9",
+            },
+          ]}
         >
           {drafts.length === 0 ? (
             <ListEmpty />
@@ -558,7 +595,13 @@ export default function LandingScreen({ route, navigation }) {
               navigation.push("CreatePollScreen", { userData });
             }}
           >
-            <Ionicons name="add-circle" style={styles.addIcon} />
+            <Ionicons
+              name="add-circle"
+              style={[
+                styles.addIcon,
+                { color: userData.admin ? "#853b30" : "#afc9f9" },
+              ]}
+            />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -586,21 +629,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   titleText: {
-    color: "#D2042D",
-    fontFamily: "Actor_400Regular",
+    color: "rgb(133, 59, 48)",
+    fontFamily: "Lato_400Regular",
     fontSize: 30,
     textAlign: "center",
-    fontWeight: "bold",
   },
   scrollView: {
     width: "100%",
     flex: 1,
   },
   headingText: {
-    fontFamily: "Actor_400Regular",
+    fontFamily: "Lato_400Regular",
     fontSize: 20,
     alignSelf: "flex-start",
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
   },
   flatListContainer: {
     marginTop: 20,
@@ -611,14 +653,14 @@ const styles = StyleSheet.create({
   },
   addIcon: {
     fontSize: 75,
-    color: "#D2042D",
+    color: "rgb(133, 59, 48)",
     textAlign: "center",
     left: 3,
   },
   subHeadingStyle: {
     alignSelf: "center",
-    fontFamily: "Actor_400Regular",
-    color: "#D2042D",
+    fontFamily: "Lato_400Regular",
+    color: "rgb(133, 59, 48)",
     fontSize: 30,
   },
   pollPreviewContainer: {
