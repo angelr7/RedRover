@@ -4,6 +4,7 @@ import HomeFeed from "./HomeFeed";
 import ExploreFeed from "./ExploreFeed";
 import Settings from "./Settings";
 import CreatePolls from "./CreatePolls";
+import CreatePolls2 from "./CreatePolls2";
 import { useEffect, useState } from "react";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,7 +12,6 @@ import { auth, getUserData } from "../firebase";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import { StatusBar } from "expo-status-bar";
-import AdminPollScreen from "./AdminPollScreen";
 
 const BottomTabs = createBottomTabNavigator();
 
@@ -159,7 +159,7 @@ export default function UserHomeScreen({ navigation }) {
           <>
             <BottomTabs.Screen
               name="create"
-              component={CreatePolls}
+              component={CreatePolls2}
               options={{ headerShown: false }}
               initialParams={{ userData }}
             />

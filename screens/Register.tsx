@@ -8,7 +8,7 @@ import {
   Animated,
   TouchableOpacity,
 } from "react-native";
-import { useFonts, Lato_400Regular } from "@expo-google-fonts/actor";
+import { useFonts, Lato_400Regular } from "@expo-google-fonts/lato";
 import React, { ReactElement, useEffect, useRef, useState } from "react";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import Spacer from "../components/Spacer";

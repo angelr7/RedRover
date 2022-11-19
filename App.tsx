@@ -7,14 +7,17 @@ import Login from "./screens/Login";
 import { auth } from "./firebase";
 import { View } from "react-native";
 import LoadingScreen from "./components/LoadingScreen";
-import { useFonts, Lato_400Regular } from "@expo-google-fonts/lato";
+import {
+  useFonts,
+  Lato_400Regular,
+  Lato_700Bold,
+} from "@expo-google-fonts/lato";
 import UserHomeScreen from "./screens/UserHomeScreen";
 import Poll from "./screens/Poll";
-import CreatePollScreen2 from "./screens/CreatePollScreen2";
 import CreatePollScreen from "./screens/CreatePollScreen";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Lato_400Regular });
+  const [fontsLoaded] = useFonts({ Lato_400Regular, Lato_700Bold });
   const [user, setUser] = useState(undefined);
 
   useEffect(() => {

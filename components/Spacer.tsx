@@ -1,12 +1,13 @@
 import { View, Animated } from "react-native";
 
+interface StyleProps {
+  [key: string]: any;
+}
+
 interface SpacerProps {
   width?: number | string;
   height?: number | string;
-}
-
-interface StyleProps {
-  [key: string]: any;
+  style?: StyleProps;
 }
 
 interface AnimatedSpacerProps {
@@ -15,8 +16,8 @@ interface AnimatedSpacerProps {
   style?: StyleProps;
 }
 
-export default function Spacer({ width, height }: SpacerProps) {
-  return <View style={{ width, height }} />;
+export default function Spacer({ width, height, style }: SpacerProps) {
+  return <View style={[{ width, height }, style]} />;
 }
 
 export function AnimatedSpacer({ width, height, style }: AnimatedSpacerProps) {

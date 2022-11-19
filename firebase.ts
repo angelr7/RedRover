@@ -499,12 +499,79 @@ const getPublishedQuestions = async (pollID: string) => {
   return docs.map((doc) => getQuestionFromData(doc));
 };
 
+const getPublishedPolls = async (userID: string) => {
+  const { docs } = await getDocs(collection(db, `published/${userID}`));
+};
+
+const removePollDraft = async (userID: string, pollID: string) => {
+  const docRef = doc(db, `${userID}_drafts/${pollID}`);
+  await deleteDoc(docRef);
+};
+
+interface PollDraftInfo {
+  id: string;
+  additionalInfo: string;
+  dateCreated: string;
+  description: string;
+  title: string;
+}
+const getPollDrafts = async (userID: string) => {
+  const { docs } = await getDocs(collection(db, `${userID}_drafts`));
+  const parse = (doc: any) => {
+    const { additionalInfo, dateCreated, description, title } = doc.data();
+    const { id } = doc;
+    const docInfo: PollDraftInfo = {
+      id,
+      additionalInfo,
+      dateCreated,
+      description,
+      title,
+    };
+    return docInfo;
+  };
+
+  const pollDrafts: PollDraftInfo[] = [];
+  for (const doc of docs) pollDrafts.push(parse(doc));
+  return pollDrafts;
+};
+
+interface PollInfo {
+  title: string;
+  description: string;
+  additionalInfo: string;
+}
+
+const createPollDraft = async (userID: string, pollInfo: PollInfo) => {
+  const doc = await addDoc(collection(db, `${userID}_drafts`), {
+    ...pollInfo,
+    dateCreated: `${moment()}`,
+  });
+  return (await getDoc(doc)).data();
+};
+
+const updatePollDraft = async (
+  userID: string,
+  pollID: string,
+  pollInfo: PollInfo
+) => {
+  const { title, description, additionalInfo } = pollInfo;
+  const docRef = doc(db, `${userID}_drafts/${pollID}`);
+  await updateDoc(docRef, {
+    title,
+    description,
+    additionalInfo,
+    dateCreated: `${moment()}`,
+  });
+};
+
 export {
   initUser,
   db,
   auth,
   getUserData,
   createPoll,
+  createPollDraft,
+  getPollDrafts,
   getPolls,
   removePoll,
   editPoll,
@@ -514,6 +581,8 @@ export {
   editQuestion,
   publishPoll,
   getAllPolls,
-  getPublishedQuestions
+  getPublishedQuestions,
+  removePollDraft,
+  updatePollDraft,
 };
-export type { UserData, PollData, Answer };
+export type { UserData, PollData, Answer, PollDraftInfo };
