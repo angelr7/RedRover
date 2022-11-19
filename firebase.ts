@@ -504,6 +504,14 @@ const getPublishedPolls = async (userID: string) => {
 };
 
 const removePollDraft = async (userID: string, pollID: string) => {
+  const docs = (
+    await getDocs(collection(db, `${userID}_drafts/${pollID}/questions`))
+  ).docs;
+
+  for (const d of docs) {
+    await deleteDoc(doc(db, `${userID}_drafts/${pollID}/questions/${d.id}`));
+  }
+
   const docRef = doc(db, `${userID}_drafts/${pollID}`);
   await deleteDoc(docRef);
 };
@@ -564,6 +572,46 @@ const updatePollDraft = async (
   });
 };
 
+const createDraftQuestion = async (
+  userID: string,
+  pollID: string,
+  question: {
+    category:
+      | "Multiple Choice"
+      | "Free Response"
+      | "Ranking"
+      | "Range (Slider)";
+    question: string;
+    answers: string[];
+  }
+) => {
+  const res = await addDoc(
+    collection(db, `${userID}_drafts/${pollID}/questions`),
+    question
+  );
+};
+
+const getDraftQuestions = async (userID: string, pollID: string) => {
+  const docs = (
+    await getDocs(collection(db, `${userID}_drafts/${pollID}/questions`))
+  ).docs;
+
+  const toRet: {
+    category:
+      | "Multiple Choice"
+      | "Free Response"
+      | "Ranking"
+      | "Range (Slider)";
+    question: string;
+    answers: string[];
+  }[] = [];
+  for (const d of docs) {
+    const { category, question, answers } = d.data();
+    toRet.push({ category, question, answers });
+  }
+  return toRet;
+};
+
 export {
   initUser,
   db,
@@ -584,5 +632,7 @@ export {
   getPublishedQuestions,
   removePollDraft,
   updatePollDraft,
+  createDraftQuestion,
+  getDraftQuestions,
 };
 export type { UserData, PollData, Answer, PollDraftInfo };

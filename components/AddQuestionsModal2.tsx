@@ -1,29 +1,52 @@
 import Spacer, { AnimatedSpacer } from "./Spacer";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import React, { useState, useRef, useEffect } from "react";
-import { PollDraftInfo } from "../firebase";
+import {
+  createDraftQuestion,
+  getDraftQuestions,
+  PollDraftInfo,
+} from "../firebase";
 import { StatusBar } from "expo-status-bar";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
 import {
   Animated,
-  FlatList,
   Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import LoadingScreen from "./LoadingScreen";
 
 interface AddQuestionsModal2Props {
+  userData: {
+    admin: boolean;
+    createdAt: string;
+    email: string;
+    id: string;
+    intakeSurvey: boolean;
+  };
+
   questionsModalActive: PollDraftInfo | undefined;
   setQuestionsModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
 }
+interface Question {
+  category: Category["name"];
+  question: string;
+  answers: string[];
+}
 interface AddQuestionsProps {
+  userData: AddQuestionsModal2Props["userData"];
   visible: boolean;
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  questionsModalActive: PollDraftInfo;
 }
 interface EnterQuestionTitleProps {
   question: string;
@@ -407,12 +430,16 @@ const MCAnswer = ({
   answers,
   answer,
   index,
+  setAnswers,
 }: {
   answers: string[];
   answer: string;
   index: number;
+  setAnswers: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
+  const [open, setOpen] = useState(false);
   const growAnimationRef = useRef(new Animated.Value(0)).current;
+  const deleteButtonGrow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(growAnimationRef, {
@@ -422,30 +449,73 @@ const MCAnswer = ({
     }).start();
   }, []);
 
+  useEffect(() => {
+    Animated.timing(deleteButtonGrow, {
+      toValue: open ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [open]);
+
   return (
     <Animated.View style={{ transform: [{ scale: growAnimationRef }] }}>
-      <View
-        key={index}
-        style={[
-          styles.centerView,
-          {
-            width: 300,
-            backgroundColor: "#853b30",
-            alignSelf: "center",
-            padding: 20,
-          },
-        ]}
+      <Pressable
+        onPress={() => setOpen(!open)}
+        style={{
+          justifyContent: "center",
+          width: 300,
+          alignSelf: "center",
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#853b30",
+        }}
       >
         <Text
           style={{
             color: "#FFF",
             fontFamily: "Lato_400Regular",
             fontSize: 20,
+            padding: 20,
           }}
         >
           {answer}
         </Text>
-      </View>
+        <Animated.View
+          style={[
+            styles.centerView,
+            {
+              position: "absolute",
+              backgroundColor: "#FFF",
+              height: "100%",
+              right: 0,
+              borderColor: "#853b30",
+              width: deleteButtonGrow.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 75],
+              }),
+              borderWidth: deleteButtonGrow.interpolate({
+                inputRange: [0, 0.05],
+                outputRange: [0, 2.5],
+                extrapolate: "clamp",
+              }),
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() =>
+              setAnswers(
+                answers.filter((_val, curr_index) => curr_index !== index)
+              )
+            }
+            style={[styles.centerView, { width: "100%", height: "100%" }]}
+          >
+            <FontAwesome5
+              name="trash-alt"
+              style={{ fontSize: 25, color: "#853b30" }}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+      </Pressable>
       {index !== answers.length - 1 && (
         <>
           <Spacer width="100%" height={20} />
@@ -464,19 +534,34 @@ const MCAnswer = ({
 };
 
 const MCAnswers = ({
+  userData,
   answers,
   setAnswers,
+  question,
+  questions,
+  setQuestions,
+  setVisible,
+  questionsModalActive,
 }: {
+  userData: AddQuestionsModal2Props["userData"];
+  question: string;
   answers: string[];
   setAnswers: React.Dispatch<React.SetStateAction<string[]>>;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  questionsModalActive: PollDraftInfo;
 }) => {
   const [newAnswer, setNewAnswer] = useState("");
   const [triggerFade, setTriggerFade] = useState(false);
+  const [buttonDisabled, setButtonDisabled] = useState(false);
   const buttonFadeRef = useRef(new Animated.Value(0)).current;
+  const submitButtonRef = useRef(new Animated.Value(0)).current;
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
   useEffect(() => {
-    setTriggerFade(newAnswer !== "");
+    if (newAnswer === "") setTriggerFade(false);
+    else setTriggerFade(!answers.includes(newAnswer));
   }, [newAnswer]);
 
   useEffect(() => {
@@ -486,6 +571,14 @@ const MCAnswers = ({
       useNativeDriver: false,
     }).start();
   }, [triggerFade]);
+
+  useEffect(() => {
+    Animated.timing(submitButtonRef, {
+      toValue: answers.length === 0 ? 0 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [answers]);
 
   return (
     <View style={{ flex: 1, width: "100%" }}>
@@ -519,8 +612,7 @@ const MCAnswers = ({
         <AnimatedTouchable
           disabled={newAnswer === ""}
           onPress={() => {
-            answers.push(newAnswer);
-            setAnswers(answers);
+            setAnswers(answers.concat(newAnswer));
             setNewAnswer("");
           }}
           style={[
@@ -561,23 +653,73 @@ const MCAnswers = ({
         </AnimatedTouchable>
       </View>
 
-      <Spacer width="100%" height={20} />
-      <View
-        style={{ width: "100%", height: 1, backgroundColor: "#853b3025" }}
-      />
-      <Spacer width="100%" height={20} />
-
-      {answers.map((answer, index) => (
-        <MCAnswer key={index} {...{ answer, answers, index }} />
-      ))}
+      <Spacer width="100%" height={40} />
+      <ScrollView style={{ flex: 1 }}>
+        {answers.map((answer, index) => (
+          <MCAnswer
+            key={index}
+            {...{ answer, answers, index, setAnswers, questions, setQuestions }}
+          />
+        ))}
+        <Spacer width="100%" height={40} />
+        <AnimatedTouchable
+          disabled={answers.length === 0 || buttonDisabled}
+          onPress={async () => {
+            createDraftQuestion(userData.id, questionsModalActive.id, {
+              answers,
+              question,
+              category: "Multiple Choice",
+            }).then(() => setVisible(false));
+            setButtonDisabled(true);
+            setQuestions(
+              questions.concat({
+                answers,
+                question,
+                category: "Multiple Choice",
+              })
+            );
+            setVisible(false);
+          }}
+          style={{
+            alignSelf: "center",
+            padding: 12.5,
+            backgroundColor: "#853b30",
+            borderRadius: 5,
+            opacity: submitButtonRef,
+          }}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 17.5,
+            }}
+          >
+            Submit
+          </Text>
+        </AnimatedTouchable>
+        <Spacer width="100%" height={40} />
+      </ScrollView>
     </View>
   );
 };
 
 const AddAnswers = ({
+  userData,
+  question,
   addAnswersActive,
+  questions,
+  setQuestions,
+  setVisible,
+  questionsModalActive,
 }: {
+  userData: AddQuestionsModal2Props["userData"];
+  question: string;
   addAnswersActive: Category | undefined;
+  questions: Question[];
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  questionsModalActive: PollDraftInfo;
 }) => {
   const [answers, setAnswers] = useState<string[]>([]);
   const shrinkRef = useRef(new Animated.Value(0)).current;
@@ -619,13 +761,29 @@ const AddAnswers = ({
       <Spacer width="100%" height={20} />
       {addAnswersActive !== undefined &&
         addAnswersActive.name === "Multiple Choice" && (
-          <MCAnswers answers={answers} setAnswers={setAnswers} />
+          <MCAnswers
+            userData={userData}
+            question={question}
+            answers={answers}
+            setAnswers={setAnswers}
+            questions={questions}
+            setQuestions={setQuestions}
+            setVisible={setVisible}
+            questionsModalActive={questionsModalActive}
+          />
         )}
     </Animated.View>
   );
 };
 
-const AddQuestion = ({ visible, setVisible }: AddQuestionsProps) => {
+const AddQuestion = ({
+  userData,
+  visible,
+  setVisible,
+  questions,
+  setQuestions,
+  questionsModalActive,
+}: AddQuestionsProps) => {
   const [question, setQuestion] = useState("");
   const [addQuestionActive, setAddQuestionActive] = useState(false);
   const [questionTitleActive, setQuestionTitleActive] = useState(true);
@@ -640,6 +798,15 @@ const AddQuestion = ({ visible, setVisible }: AddQuestionsProps) => {
   useEffect(() => {
     if (addAnswersActive) setAddQuestionActive(false);
   }, [addAnswersActive]);
+
+  useEffect(() => {
+    if (visible === false) {
+      setQuestion("");
+      setAddQuestionActive(false);
+      setQuestionTitleActive(false);
+      setAddAnswersActive(undefined);
+    }
+  }, [visible]);
 
   return (
     <Modal
@@ -662,10 +829,6 @@ const AddQuestion = ({ visible, setVisible }: AddQuestionsProps) => {
           ]}
           onPress={() => {
             setVisible(false);
-            setQuestion("");
-            setAddQuestionActive(false);
-            setQuestionTitleActive(false);
-            setAddAnswersActive(undefined);
           }}
         >
           <FontAwesome5
@@ -689,18 +852,112 @@ const AddQuestion = ({ visible, setVisible }: AddQuestionsProps) => {
           addQuestionActive={addQuestionActive}
           setAddAnswersActive={setAddAnswersActive}
         />
-        <AddAnswers addAnswersActive={addAnswersActive} />
+        <AddAnswers
+          userData={userData}
+          addAnswersActive={addAnswersActive}
+          question={question}
+          questions={questions}
+          setQuestions={setQuestions}
+          setVisible={setVisible}
+          questionsModalActive={questionsModalActive}
+        />
       </View>
     </Modal>
   );
 };
 
+const QuestionComponent = ({
+  question,
+  last,
+}: {
+  question: Question;
+  last: boolean;
+}) => {
+  return (
+    <>
+      <View
+        style={{
+          width: 300,
+          minHeight: 200,
+          borderLeftWidth: 2.5,
+          borderTopWidth: 2.5,
+          borderRightWidth: 2.5,
+          borderColor: "#853b30",
+          backgroundColor: "#853b30",
+          alignSelf: "center",
+        }}
+      >
+        <View
+          style={[
+            styles.centerView,
+            { width: "100%", minHeight: 50, backgroundColor: "#FFF" },
+          ]}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 20,
+              color: "#853b30",
+            }}
+          >
+            {question.question}
+          </Text>
+        </View>
+        <View
+          style={{
+            width: "100%",
+            flex: 1,
+            padding: 20,
+          }}
+        >
+          {question.answers.map((answer, index) => {
+            return (
+              <Text
+                key={index}
+                style={{
+                  textAlign: "center",
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 17.5,
+                  color: "#FFF",
+                }}
+              >
+                {answer}
+              </Text>
+            );
+          })}
+        </View>
+      </View>
+      {!last && (
+        <>
+          <Spacer width="100%" height={20} />
+          <View
+            style={{ width: "100%", height: 1, backgroundColor: "#853b3025" }}
+          />
+          <Spacer width="100%" height={20} />
+        </>
+      )}
+    </>
+  );
+};
+
 export default function AddQuestionsModal2({
+  userData,
   questionsModalActive,
   setQuestionsModalActive,
 }: AddQuestionsModal2Props) {
-  const [questions, setQuestions] = useState<any>();
+  const [loading, setLoading] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [addModalActive, setAddModalActive] = useState(false);
+
+  useEffect(() => {
+    if (questionsModalActive !== undefined)
+      getDraftQuestions(userData.id, questionsModalActive.id).then((result) => {
+        setQuestions(result);
+        setLoading(false);
+      });
+    else setQuestions([]);
+  }, [questionsModalActive]);
+
   return (
     <Modal animationType="slide" visible={questionsModalActive !== undefined}>
       <StatusBar />
@@ -745,7 +1002,24 @@ export default function AddQuestionsModal2({
           Questions
         </Text>
         <Spacer width="100%" height={40} />
-        {questions === undefined ? <Empty /> : <View />}
+        {loading ? (
+          <LoadingScreen color="#853b30" />
+        ) : questions.length === 0 ? (
+          <Empty />
+        ) : (
+          <ScrollView>
+            {questions.map((val, index) => {
+              return (
+                <QuestionComponent
+                  key={index}
+                  question={val}
+                  last={index == questions.length - 1}
+                />
+              );
+            })}
+          </ScrollView>
+        )}
+        <Spacer width="100%" height={40} />
         <TouchableOpacity
           onPress={() => setAddModalActive(true)}
           style={[
@@ -758,13 +1032,22 @@ export default function AddQuestionsModal2({
               position: "absolute",
               bottom: SCREEN_HEIGHT / 15,
               right: 20,
+              borderWidth: 2.5,
+              borderColor: "#FFF",
             },
           ]}
         >
           <FontAwesome5 name="plus" color="#FFF" style={{ fontSize: 25 }} />
         </TouchableOpacity>
       </View>
-      <AddQuestion visible={addModalActive} setVisible={setAddModalActive} />
+      <AddQuestion
+        userData={userData}
+        questionsModalActive={questionsModalActive}
+        visible={addModalActive}
+        setVisible={setAddModalActive}
+        questions={questions}
+        setQuestions={setQuestions}
+      />
     </Modal>
   );
 }

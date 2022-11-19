@@ -474,6 +474,7 @@ const CreateAndEditModals = ({
       />
       <AddQuestionsModal2
         {...{
+          userData,
           questionsModalActive,
           setQuestionsModalActive,
         }}
