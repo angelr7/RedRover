@@ -1,21 +1,27 @@
 import {
   StyleSheet,
-  View,
   SafeAreaView,
   TextInput,
   Text,
   TouchableOpacity,
-  Keyboard,
   Animated,
+  View,
 } from "react-native";
-import { useFonts, Lato_400Regular } from "@expo-google-fonts/actor";
-import { SCREEN_WIDTH } from "../constants/dimensions";
-import Spacer, { AnimatedSpacer } from "../components/Spacer";
+import {
+  useFonts,
+  Lato_400Regular,
+  Lato_700Bold,
+  Lato_400Regular_Italic,
+} from "@expo-google-fonts/lato";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../constants/dimensions";
+import Spacer from "../components/Spacer";
 import React, { useEffect, useRef, useState } from "react";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
+  getAuth,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import Toast from "react-native-root-toast";
@@ -43,29 +49,6 @@ const showToast = (message: string) => {
     },
     shadow: false,
   });
-};
-
-const handleKeyboardAnimations = (
-  moveUpAnimationProgress: Animated.Value,
-  setKeyboardHeight: React.Dispatch<React.SetStateAction<number>>
-) => {
-  useEffect(() => {
-    Keyboard.addListener("keyboardWillShow", (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-      Animated.timing(moveUpAnimationProgress, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: false,
-      }).start();
-    });
-    Keyboard.addListener("keyboardWillHide", (event) => {
-      Animated.timing(moveUpAnimationProgress, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: false,
-      }).start();
-    });
-  }, []);
 };
 
 const handleTypingErrors = (
@@ -125,7 +108,7 @@ const handlePress = (
           "You must verify your email before logging in! Just in case, we've already sent you another verification link!"
         );
       } else {
-        navigation.push("UserHomeScreen");
+        navigation.navigate("UserHomeScreen");
       }
     } catch (error) {
       setTriggerError(true);
@@ -133,11 +116,146 @@ const handlePress = (
   };
 };
 
+const keyboardUp = (animationVal: Animated.Value) => {
+  Animated.timing(animationVal, {
+    toValue: 1,
+    duration: 250,
+    useNativeDriver: true,
+  }).start();
+};
+
+const keyboardDown = (animationVal: Animated.Value) => {
+  Animated.timing(animationVal, {
+    toValue: 0,
+    duration: 250,
+    useNativeDriver: true,
+  }).start();
+};
+
+const ForgotPassword = ({ navigation }) => {
+  const [inputVal, setInputVal] = useState("");
+  const keyboardAnimationRef = useRef(new Animated.Value(0)).current;
+
+  return (
+    <SafeAreaView style={[styles.container, styles.centerView]}>
+      <Animated.View
+        style={{
+          transform: [
+            {
+              translateY: keyboardAnimationRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, -SCREEN_HEIGHT / 10],
+              }),
+            },
+          ],
+        }}
+      >
+        <Text style={styles.questionText}>Enter your email.</Text>
+        <Spacer height={50} width="100%" />
+        <TextInput
+          autoCapitalize="none"
+          placeholder={"email"}
+          selectionColor={"#000"}
+          keyboardType={"email-address"}
+          style={[styles.textInput, { alignSelf: "center" }]}
+          onFocus={() => keyboardUp(keyboardAnimationRef)}
+          onBlur={() => keyboardDown(keyboardAnimationRef)}
+          onChangeText={(text) => setInputVal(text)}
+        />
+        <Spacer width="100%" height={50} />
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            styles.centerView,
+            { alignSelf: "center" },
+          ]}
+          onPress={() => {
+            navigation.navigate("ForgottenPasswordEmailSent", {
+              email: inputVal,
+            });
+          }}
+        >
+          <Text style={[styles.buttonText]}>Submit</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </SafeAreaView>
+  );
+};
+
+const ErrorScreen = () => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity }}>
+      <Text style={styles.questionText}>Uh oh! That email didn't work!</Text>
+      <Spacer width="100%" height={20} />
+      <Text style={styles.questionText}>Please try again.</Text>
+    </Animated.View>
+  );
+};
+
+const ResetEmailSent = () => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity }}>
+      <Text style={styles.questionText}>Reset email sent!</Text>
+      <Spacer width="100%" height={20} />
+      <Text style={styles.questionText}>
+        Check your inbox for further instructions.
+      </Text>
+    </Animated.View>
+  );
+};
+
+const ForgottenPasswordEmailSent = ({ navigation, route }) => {
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { email } = route.params;
+
+  useEffect(() => {
+    if (error) setLoading(false);
+  }, [error]);
+
+  useEffect(() => {
+    const auth = getAuth();
+    sendPasswordResetEmail(auth, email)
+      .then(() => setLoading(false))
+      .catch(() => setError(true));
+  }, []);
+
+  return (
+    <SafeAreaView style={[styles.container, styles.centerView]}>
+      {loading ? (
+        <LoadingScreen color="#507DBC" />
+      ) : error ? (
+        <ErrorScreen />
+      ) : (
+        <ResetEmailSent />
+      )}
+    </SafeAreaView>
+  );
+};
+
 const ErrorMessage = ({
-  moveUpAnimationProgress,
   errorAnimationProgress,
 }: {
-  moveUpAnimationProgress: Animated.Value;
   errorAnimationProgress: Animated.Value;
 }) => {
   return (
@@ -146,14 +264,6 @@ const ErrorMessage = ({
         styles.errorMessage,
         {
           opacity: errorAnimationProgress,
-          transform: [
-            {
-              translateY: moveUpAnimationProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, -32],
-              }),
-            },
-          ],
         },
       ]}
     >
@@ -167,12 +277,13 @@ export default function Login({ navigation }) {
   const [passwordVal, setPasswordVal] = useState("");
   const [inputStyle, setInputStyle] = useState<any>();
   const [triggerError, setTriggerError] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [fontsLoaded] = useFonts({ Lato_400Regular });
-  const moveUpAnimationProgress = useRef(new Animated.Value(0)).current;
+  const [fontsLoaded] = useFonts({
+    Lato_400Regular,
+    Lato_700Bold,
+    Lato_400Regular_Italic,
+  });
   const errorAnimationProgress = useRef(new Animated.Value(0)).current;
 
-  handleKeyboardAnimations(moveUpAnimationProgress, setKeyboardHeight);
   handleTypingErrors(
     triggerError,
     setTriggerError,
@@ -184,36 +295,13 @@ export default function Login({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, styles.centerView]}>
-      <Animated.View
-        style={[
-          styles.centerView,
-          {
-            transform: [
-              {
-                translateY: moveUpAnimationProgress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, (keyboardHeight / 2) * -1],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
+      <Animated.View style={[styles.centerView]}>
         <Text style={styles.questionText}>
           Enter your username and password.
         </Text>
-        <AnimatedSpacer
-          width="100%"
-          height={moveUpAnimationProgress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [100, 50],
-          })}
-        />
-
-        <ErrorMessage
-          moveUpAnimationProgress={moveUpAnimationProgress}
-          errorAnimationProgress={errorAnimationProgress}
-        />
+        <Spacer width="100%" height={50} />
+        <ErrorMessage errorAnimationProgress={errorAnimationProgress} />
+        <Spacer width="100%" height={10} />
         <TextInput
           placeholder="email"
           style={[styles.textInput, inputStyle]}
@@ -233,8 +321,7 @@ export default function Login({ navigation }) {
             setPasswordVal(text);
           }}
         />
-        <Spacer width="100%" height={20} />
-
+        <Spacer width="100%" height={50} />
         <TouchableOpacity
           style={[styles.submitButton, styles.centerView]}
           onPress={handlePress(
@@ -246,6 +333,15 @@ export default function Login({ navigation }) {
           )}
         >
           <Text style={[styles.buttonText]}>Login</Text>
+        </TouchableOpacity>
+        <Spacer width="100%" height={25} />
+        <TouchableOpacity
+          style={[styles.submitButton, styles.centerView]}
+          onPress={async () => {
+            navigation.push("ForgotPassword");
+          }}
+        >
+          <Text style={[styles.buttonText]}>Forgot My Password</Text>
         </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
@@ -281,8 +377,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH * 0.9,
   },
   submitButton: {
-    width: 100,
-    height: 50,
+    padding: 15,
     backgroundColor: "#507DBC",
     borderRadius: 5,
   },
@@ -294,11 +389,11 @@ const styles = StyleSheet.create({
   errorMessage: {
     color: "#F00",
     fontFamily: "Lato_400Regular",
-    position: "absolute",
     zIndex: 1,
-    top: "45%",
     alignSelf: "flex-start",
     left: 20,
-    fontSize: 10,
+    fontSize: 15,
   },
 });
+
+export { ForgotPassword, ForgottenPasswordEmailSent };

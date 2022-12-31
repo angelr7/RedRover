@@ -8,4 +8,8 @@ const DAYS_OF_WEEK = [
   "Sunday",
 ];
 
-export { DAYS_OF_WEEK };
+const TIME_UNITS = ["minutes", "hours", "days", "weeks"];
+type TIME_UNIT = "minutes" | "hours" | "days" | "weeks";
+
+export { DAYS_OF_WEEK, TIME_UNITS };
+export type { TIME_UNIT };

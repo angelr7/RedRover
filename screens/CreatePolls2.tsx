@@ -1,25 +1,33 @@
-import * as Haptics from "expo-haptics";
-import * as Localization from "expo-localization";
 import moment from "moment";
+import * as Haptics from "expo-haptics";
 import Spacer from "../components/Spacer";
+import * as Localization from "expo-localization";
 import EditPollModal from "../components/EditPollModal";
 import LoadingScreen from "../components/LoadingScreen";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import CreatePollModal from "../components/CreatePollModal";
+import PublishPollModal from "../components/PublishPollModal";
+import AddQuestionsModal2 from "../components/AddQuestionsModal2";
 import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK } from "../constants/localization";
-import { getPollDrafts, PollDraftInfo, removePollDraft } from "../firebase";
 import {
-  StyleSheet,
-  View,
+  PollDraftInfo,
+  getPollDrafts,
+  updatePollDraft,
+  removePollDraft,
+  getPublishedPollsForUser,
+  PublishedPollWithID,
+} from "../firebase";
+import {
   Text,
+  View,
+  Modal,
   Animated,
   Pressable,
-  TouchableOpacity,
+  StyleSheet,
   ScrollView,
-  Modal,
+  TouchableOpacity,
 } from "react-native";
-import AddQuestionsModal2 from "../components/AddQuestionsModal2";
 
 interface UserData {
   admin: boolean;
@@ -36,6 +44,7 @@ interface CAEModalsProps {
   editPollActive: PollDraftInfo | undefined;
   createPollActive: boolean;
   deletingModalActive: PollDraftInfoExtended | undefined;
+  publishingPollActive: PollDraftInfo | undefined;
   setQuestionsModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
@@ -47,6 +56,10 @@ interface CAEModalsProps {
   >;
   setCreatePollActive: React.Dispatch<React.SetStateAction<boolean>>;
   userData: UserData;
+  setDraftsChanged: React.Dispatch<React.SetStateAction<boolean>>;
+  setPublishingPollActive: React.Dispatch<
+    React.SetStateAction<PollDraftInfo | undefined>
+  >;
 }
 interface PollDraftSliderProps {
   slideAnimationRef: Animated.Value;
@@ -67,6 +80,9 @@ interface DraftButtonContainerProps {
   setQuestionsModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
+  setPublishingPollActive: React.Dispatch<
+    React.SetStateAction<PollDraftInfo | undefined>
+  >;
 }
 interface PollDraftContainerProps {
   drafts: PollDraftInfo[];
@@ -77,6 +93,9 @@ interface PollDraftContainerProps {
     React.SetStateAction<PollDraftInfo | undefined>
   >;
   setQuestionsModalActive: React.Dispatch<
+    React.SetStateAction<PollDraftInfo | undefined>
+  >;
+  setPublishingPollActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
 }
@@ -92,6 +111,13 @@ interface PollDraftPreviewProps {
   setQuestionsModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
+  setPublishingPollActive: React.Dispatch<
+    React.SetStateAction<PollDraftInfo | undefined>
+  >;
+}
+interface PublishedPollPreviewProps {
+  poll: PublishedPollWithID;
+  last: boolean;
 }
 interface DeleteDraftModalProps {
   userData: {
@@ -105,6 +131,19 @@ interface DeleteDraftModalProps {
   setDeletingModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfoExtended | undefined>
   >;
+}
+interface TopLogoBarProps {
+  refresh: boolean;
+  setRefresh: React.Dispatch<React.SetStateAction<boolean>>;
+}
+interface PublishedPollContainerProps {
+  published: PublishedPollWithID[];
+}
+interface PublishedButtonContainerProps {
+  poll: PublishedPollWithID;
+  openCircularRef: Animated.Value;
+  interactionMenuOpen: boolean;
+  openInteractionMenu: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const getRelativeTimestamp = (
@@ -182,14 +221,13 @@ const handleDraftAnimations = (
   }, [interactionMenuOpen]);
 };
 
-const TopLogoBar = () => {
-  const [animationTriggered, setAnimationTriggered] = useState(false);
+const TopLogoBar = ({ refresh, setRefresh }: TopLogoBarProps) => {
   const [animationVal, setAnimationVal] = useState(0);
   const spinslideRef = useRef(new Animated.Value(0)).current;
   const AnimatedTouchable = Animated.createAnimatedComponent(Pressable);
 
   useEffect(() => {
-    if (animationTriggered) {
+    if (refresh) {
       Animated.timing(spinslideRef, {
         toValue: animationVal + 1,
         duration: 250,
@@ -198,12 +236,13 @@ const TopLogoBar = () => {
     } else {
       spinslideRef.setValue(0);
     }
-  }, [animationTriggered, animationVal]);
+  }, [refresh, animationVal]);
 
   return (
     <View style={styles.topLogoContainer}>
       <AnimatedTouchable
-        onPress={() => setAnimationTriggered(!animationTriggered)}
+        disabled={refresh}
+        onPress={() => setRefresh(true)}
         style={{
           flexDirection: "row",
           transform: [
@@ -449,11 +488,14 @@ const CreateAndEditModals = ({
   editPollActive,
   deletingModalActive,
   createPollActive,
+  publishingPollActive,
   setQuestionsModalActive,
   setEditPollActive,
   setDeletingModalActive,
   setCreatePollActive,
+  setPublishingPollActive,
   userData,
+  setDraftsChanged,
 }: CAEModalsProps) => {
   return (
     <>
@@ -472,11 +514,17 @@ const CreateAndEditModals = ({
         visible={editPollActive}
         setVisible={setEditPollActive}
       />
+      <PublishPollModal
+        userData={userData}
+        visible={publishingPollActive}
+        setVisible={setPublishingPollActive}
+      />
       <AddQuestionsModal2
         {...{
           userData,
           questionsModalActive,
           setQuestionsModalActive,
+          setDraftsChanged,
         }}
       />
     </>
@@ -598,6 +646,7 @@ const DraftButtonContainer = ({
   setDeletingModalActive,
   setEditPollActive,
   setQuestionsModalActive,
+  setPublishingPollActive,
 }: DraftButtonContainerProps) => {
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
   return (
@@ -616,6 +665,7 @@ const DraftButtonContainer = ({
           inputRange: [0, 1],
           outputRange: ["0%", "100%"],
         }),
+        // doesn't work on Android
         borderRadius: openCircularRef.interpolate({
           inputRange: [0.5, 1],
           outputRange: ["50%", "0%"],
@@ -627,8 +677,10 @@ const DraftButtonContainer = ({
         onPress={() => openInteractionMenu(false)}
         style={{
           position: "absolute",
-          left: 10,
-          top: 10,
+          top: 0,
+          left: 0,
+          zIndex: 2,
+          padding: 10,
           opacity: openCircularRef.interpolate({
             inputRange: [0.5, 1],
             outputRange: [0, 1],
@@ -654,7 +706,13 @@ const DraftButtonContainer = ({
           onPress={() => setEditPollActive(draft)}
           style={styles.draftButtonContainer}
         >
-          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
             Edit Draft
           </Text>
         </TouchableOpacity>
@@ -663,8 +721,29 @@ const DraftButtonContainer = ({
           onPress={() => setQuestionsModalActive(draft)}
           style={styles.draftButtonContainer}
         >
-          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
             Add Questions
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={!interactionMenuOpen}
+          style={styles.draftButtonContainer}
+          onPress={() => setPublishingPollActive(draft)}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
+            Publish Draft
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -674,7 +753,13 @@ const DraftButtonContainer = ({
             setDeletingModalActive({ ...draft, openInteractionMenu })
           }
         >
-          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
             Delete Draft
           </Text>
         </TouchableOpacity>
@@ -706,6 +791,7 @@ const PollDraftPreview = ({
   setDeletingModalActive,
   setEditPollActive,
   setQuestionsModalActive,
+  setPublishingPollActive,
 }: PollDraftPreviewProps) => {
   const { title, dateCreated, description, additionalInfo } = draft;
   const relativeTimestamp = getRelativeTimestamp(
@@ -751,8 +837,9 @@ const PollDraftPreview = ({
             setDeletingModalActive={setDeletingModalActive}
             setEditPollActive={setEditPollActive}
             setQuestionsModalActive={setQuestionsModalActive}
+            setPublishingPollActive={setPublishingPollActive}
           />
-          <Text style={styles.pollDraftTitle}>{title}</Text>
+          <Text style={[styles.pollDraftTitle, { padding: 20 }]}>{title}</Text>
         </Pressable>
         <View
           style={[
@@ -779,6 +866,7 @@ const PollDraftContainer = ({
   setDeletingModalActive,
   setEditPollActive,
   setQuestionsModalActive,
+  setPublishingPollActive,
 }: PollDraftContainerProps) => {
   return (
     <View style={styles.pollContainer}>
@@ -799,6 +887,208 @@ const PollDraftContainer = ({
               setDeletingModalActive={setDeletingModalActive}
               setEditPollActive={setEditPollActive}
               setQuestionsModalActive={setQuestionsModalActive}
+              setPublishingPollActive={setPublishingPollActive}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const PublishedButtonContainer = ({
+  poll,
+  openCircularRef,
+  interactionMenuOpen,
+  openInteractionMenu,
+}: PublishedButtonContainerProps) => {
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+  const buttonsDisabled = !interactionMenuOpen;
+  return (
+    <Animated.View
+      style={{
+        zIndex: 2,
+        position: "absolute",
+        backgroundColor: "#FFF",
+        justifyContent: "center",
+        alignItems: "center",
+        width: openCircularRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0%", "100%"],
+        }),
+        height: openCircularRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0%", "100%"],
+        }),
+        // doesn't work on Android
+        borderRadius: openCircularRef.interpolate({
+          inputRange: [0.5, 1],
+          outputRange: ["50%", "0%"],
+          extrapolate: "clamp",
+        }),
+      }}
+    >
+      <AnimatedPressable
+        onPress={() => openInteractionMenu(false)}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          zIndex: 2,
+          padding: 10,
+          opacity: openCircularRef.interpolate({
+            inputRange: [0.5, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      >
+        <FontAwesome5 name="times" style={{ fontSize: 20, color: "#853b30" }} />
+      </AnimatedPressable>
+      <Animated.View
+        style={{
+          justifyContent: "space-evenly",
+          height: "100%",
+          opacity: openCircularRef.interpolate({
+            inputRange: [0.5, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      >
+        <TouchableOpacity
+          disabled={!interactionMenuOpen}
+          style={styles.draftButtonContainer}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
+            View Results
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={!interactionMenuOpen}
+          style={styles.draftButtonContainer}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
+            Extend Deadline
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={!interactionMenuOpen}
+          style={styles.draftButtonContainer}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontFamily: "Lato_400Regular",
+              fontSize: 12.5,
+            }}
+          >
+            Close Poll
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
+};
+
+const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
+  const { title, description, additionalInfo } = poll.pollData;
+  const { expirationTime } = poll;
+  const parsedTimestamp = moment(parseInt(expirationTime))
+    .tz(Localization.timezone)
+    .format("LLLL")
+    .split(" ");
+
+  const [extraInfoOpen, openExtraInfo] = useState(false);
+  const [interactionMenuOpen, openInteractionMenu] = useState(false);
+  const openCircularRef = useRef(new Animated.Value(0)).current;
+  const slideAnimationRef = useRef(new Animated.Value(0)).current;
+
+  handleDraftAnimations(
+    extraInfoOpen,
+    interactionMenuOpen,
+    slideAnimationRef,
+    openCircularRef
+  );
+
+  return (
+    <>
+      <View style={styles.pollDraftMain}>
+        <Pressable
+          onPress={() => openExtraInfo(!extraInfoOpen)}
+          onLongPress={() => {
+            if (!interactionMenuOpen) {
+              Haptics.selectionAsync();
+              openInteractionMenu(true);
+            }
+          }}
+          style={[styles.centerView, { flex: 1 }]}
+        >
+          <PollDraftSlider
+            additionalInfo={additionalInfo}
+            description={description}
+            slideAnimationRef={slideAnimationRef}
+          />
+          <PublishedButtonContainer
+            poll={poll}
+            openCircularRef={openCircularRef}
+            interactionMenuOpen={interactionMenuOpen}
+            openInteractionMenu={openInteractionMenu}
+          />
+          <Text style={[styles.pollDraftTitle, { padding: 20 }]}>{title}</Text>
+        </Pressable>
+        <View
+          style={[
+            styles.centerView,
+            {
+              width: "100%",
+              minHeight: 50,
+              backgroundColor: "#FFF",
+              padding: 10,
+            },
+          ]}
+        >
+          <Text style={styles.pollDraftBottomText}>
+            Available Until: {parsedTimestamp[0]} {parsedTimestamp[1]}{" "}
+            {parsedTimestamp[2]} {parsedTimestamp[3]} at {parsedTimestamp[4]}{" "}
+            {parsedTimestamp[5]}
+          </Text>
+        </View>
+      </View>
+      {!last && <LineSeparator />}
+    </>
+  );
+};
+
+const PublishedPollContainer = ({ published }: PublishedPollContainerProps) => {
+  return (
+    <View style={styles.pollContainer}>
+      {published.length === 0 ? (
+        <EmptyPoll />
+      ) : (
+        <View
+          style={{
+            justifyContent: "space-evenly",
+            alignItems: "center",
+          }}
+        >
+          {published.map((poll, index) => (
+            <PublishedPollPreview
+              key={index}
+              poll={poll}
+              last={index === published.length - 1}
             />
           ))}
         </View>
@@ -808,17 +1098,37 @@ const PollDraftContainer = ({
 };
 
 export default function CreatePolls2({ route, navigation }) {
-  const [published, setPublished] = useState<any[]>([]);
+  const [refresh, setRefresh] = useState(false);
+  const [draftsChanged, setDraftsChanged] = useState(false);
+  const [published, setPublished] = useState<PublishedPollWithID[]>([]);
   const [drafts, setDrafts] = useState<PollDraftInfo[]>([]);
   const [createPollActive, setCreatePollActive] = useState(false);
   const [deletingModalActive, setDeletingModalActive] = useState(undefined);
   const [editPollActive, setEditPollActive] = useState<
     PollDraftInfo | undefined
   >();
+  const [publishingPollActive, setPublishingPollActive] = useState<
+    PollDraftInfo | undefined
+  >();
   const [questionsModalActive, setQuestionsModalActive] = useState<
     PollDraftInfo | undefined
   >(undefined);
   const { userData } = route.params;
+
+  // needs its own check, doesn't update w/ the rest of the values
+  useEffect(() => {
+    if (refresh) {
+      getPollDrafts(userData.id).then((pollDrafts) => {
+        setRefresh(false);
+        setDrafts(
+          // this puts the newest drafts first
+          pollDrafts.sort(
+            (a, b) => -(parseInt(a.dateCreated) - parseInt(b.dateCreated))
+          )
+        );
+      });
+    }
+  }, [refresh]);
 
   useEffect(() => {
     if (!createPollActive) {
@@ -849,30 +1159,66 @@ export default function CreatePolls2({ route, navigation }) {
         )
       );
     } else if (!questionsModalActive) {
-      getPollDrafts(userData.id).then((pollDrafts) =>
-        setDrafts(
-          // this puts the newest drafts first
-          pollDrafts.sort(
-            (a, b) => -(parseInt(a.dateCreated) - parseInt(b.dateCreated))
-          )
-        )
-      );
+      getPollDrafts(userData.id).then((pollDrafts) => {
+        if (draftsChanged) {
+          setDraftsChanged(false);
+          setDrafts(
+            // this puts the newest drafts first
+            pollDrafts.sort(
+              (a, b) => -(parseInt(a.dateCreated) - parseInt(b.dateCreated))
+            )
+          );
+        }
+      });
+    } else if (!publishingPollActive) {
+      getPollDrafts(userData.id).then((pollDrafts) => {
+        if (draftsChanged) {
+          setDraftsChanged(false);
+          setDrafts(
+            // this puts the newest drafts first
+            pollDrafts.sort(
+              (a, b) => -(parseInt(a.dateCreated) - parseInt(b.dateCreated))
+            )
+          );
+        }
+      });
     }
-  }, [createPollActive, deletingModalActive, editPollActive]);
+  }, [
+    createPollActive,
+    deletingModalActive,
+    editPollActive,
+    questionsModalActive,
+    publishingPollActive,
+  ]);
+
+  useEffect(() => {
+    if (!publishingPollActive)
+      getPublishedPollsForUser(userData.id).then((publishedPolls) => {
+        setPublished(publishedPolls);
+      });
+  }, [publishingPollActive]);
+
+  useEffect(() => {
+    if (draftsChanged) {
+      updatePollDraft(userData.id, questionsModalActive.id, {
+        additionalInfo: questionsModalActive.additionalInfo,
+        description: questionsModalActive.description,
+        title: questionsModalActive.title,
+      });
+    }
+  }, [draftsChanged]);
 
   return (
     <ScrollView
       style={styles.mainContainer}
       showsVerticalScrollIndicator={false}
     >
-      <TopLogoBar />
+      <TopLogoBar refresh={refresh} setRefresh={setRefresh} />
       <Spacer width="100%" height={20} />
       <View style={{ width: "100%", flex: 1, padding: 10 }}>
         <Text style={styles.titleText}>Published Polls</Text>
         <Spacer width="100%" height={5} />
-        <View style={styles.pollContainer}>
-          {published.length === 0 ? <EmptyPoll /> : <View />}
-        </View>
+        <PublishedPollContainer published={published} />
         <Spacer width="100%" height={40} />
         <Text style={styles.titleText}>Drafts</Text>
         <Spacer width="100%" height={5} />
@@ -881,6 +1227,7 @@ export default function CreatePolls2({ route, navigation }) {
           setDeletingModalActive={setDeletingModalActive}
           setEditPollActive={setEditPollActive}
           setQuestionsModalActive={setQuestionsModalActive}
+          setPublishingPollActive={setPublishingPollActive}
         />
       </View>
       <Spacer height={10} width="100%" />
@@ -903,6 +1250,9 @@ export default function CreatePolls2({ route, navigation }) {
         setCreatePollActive={setCreatePollActive}
         setDeletingModalActive={setDeletingModalActive}
         userData={userData}
+        setDraftsChanged={setDraftsChanged}
+        publishingPollActive={publishingPollActive}
+        setPublishingPollActive={setPublishingPollActive}
       />
     </ScrollView>
   );
@@ -990,7 +1340,7 @@ const styles = StyleSheet.create({
   },
   draftButtonContainer: {
     backgroundColor: "#853b30",
-    padding: 10,
+    padding: 7.5,
     borderRadius: 5,
     justifyContent: "center",
     alignItems: "center",

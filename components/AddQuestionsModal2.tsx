@@ -1,13 +1,20 @@
-import Spacer, { AnimatedSpacer } from "./Spacer";
+import * as Haptics from "expo-haptics";
+import Spacer from "./Spacer";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import LoadingScreen from "./LoadingScreen";
+import MCAnswers from "./MultipleChoiceAnswerComponents";
 import React, { useState, useRef, useEffect } from "react";
-import {
-  createDraftQuestion,
-  getDraftQuestions,
-  PollDraftInfo,
-} from "../firebase";
 import { StatusBar } from "expo-status-bar";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
+import FreeResponseAnswers, {
+  FreeResponseQuestionPreview,
+} from "./FreeResponseAnswerComponents";
+import {
+  deleteDraftQuestion,
+  getDraftQuestions,
+  PollDraftInfo,
+  QuestionData,
+} from "../firebase";
 import {
   Animated,
   Modal,
@@ -19,7 +26,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import LoadingScreen from "./LoadingScreen";
+import SliderAnswer, { SliderAnswerQuestionPreview } from "./SliderAnswer";
+import RankingAnswers from "./RankingAnswers";
 
 interface AddQuestionsModal2Props {
   userData: {
@@ -34,11 +42,10 @@ interface AddQuestionsModal2Props {
   setQuestionsModalActive: React.Dispatch<
     React.SetStateAction<PollDraftInfo | undefined>
   >;
+  setDraftsChanged: React.Dispatch<React.SetStateAction<boolean>>;
 }
-interface Question {
-  category: Category["name"];
-  question: string;
-  answers: string[];
+interface Question extends QuestionData {
+  id: string;
 }
 interface AddQuestionsProps {
   userData: AddQuestionsModal2Props["userData"];
@@ -47,15 +54,22 @@ interface AddQuestionsProps {
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   questionsModalActive: PollDraftInfo;
+  editQuestion: Question | undefined;
+  setEditQuestion: React.Dispatch<React.SetStateAction<Question | undefined>>;
+  setDraftsChanged: React.Dispatch<React.SetStateAction<boolean>>;
 }
 interface EnterQuestionTitleProps {
   question: string;
+  editQuestion: Question | undefined;
   setQuestion: React.Dispatch<React.SetStateAction<string>>;
   setAddQuestionActive: React.Dispatch<React.SetStateAction<boolean>>;
 }
 interface AddQuestionSubModalProps {
+  pollID: string;
+  userData: AddQuestionsModal2Props["userData"];
   question: string;
   addQuestionActive: boolean;
+  editQuestion: Question | undefined;
   setAddAnswersActive: React.Dispatch<
     React.SetStateAction<Category | undefined>
   >;
@@ -68,6 +82,15 @@ interface CategoryProps {
   category: Category;
   index: number;
 }
+interface QuestionButtonsProps {
+  question: Question;
+  growRef: Animated.Value;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setDeleting: React.Dispatch<React.SetStateAction<Question | undefined>>;
+  setEditQuestion: React.Dispatch<React.SetStateAction<Question | undefined>>;
+}
+
+// TODO: update time labels when someone edits questions / answers
 
 const Empty = () => {
   return (
@@ -191,7 +214,7 @@ const EnterQuestionTitle = ({
         onPress={() =>
           Animated.timing(shrinkRef, {
             toValue: 0,
-            duration: 500,
+            duration: 250,
             useNativeDriver: true,
           }).start(() => setAddQuestionActive(true))
         }
@@ -218,10 +241,16 @@ const EnterQuestionTitle = ({
 
 const CategoryList = ({
   setAddAnswersActive,
+  editQuestion,
+  questionWarning,
+  raiseQuestionWarning,
 }: {
   setAddAnswersActive: React.Dispatch<
     React.SetStateAction<Category | undefined>
   >;
+  editQuestion: Question | undefined;
+  questionWarning: boolean | -1;
+  raiseQuestionWarning: React.Dispatch<React.SetStateAction<boolean | -1>>;
 }) => {
   const categories: Category[] = [
     {
@@ -241,6 +270,13 @@ const CategoryList = ({
       iconName: "list-ol",
     },
   ];
+  const getCategoryFromName = (name: Category["name"]) => {
+    return {
+      name,
+      iconName: categories.filter((item) => item.name === name)[0].iconName,
+    };
+  };
+
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
   const CategoryButton = ({ category, index }: CategoryProps) => {
     const { name, iconName } = category;
@@ -267,74 +303,100 @@ const CategoryList = ({
 
     return (
       <>
-        <Animated.View
-          style={{
-            borderWidth: 2.5,
-            borderRadius: 5,
-            borderColor: "#853b30",
-            backgroundColor: colorChangeRef.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["#FFF", "#853b30"],
-            }),
+        <TouchableOpacity
+          onPress={() => {
+            if (selectedCategory !== undefined) {
+              if (selectedCategory.name === category.name)
+                setSelectedCategory(undefined);
+              else if (
+                editQuestion !== undefined &&
+                questionWarning !== -1 &&
+                editQuestion.category !== category.name
+              ) {
+                setWarnedCategory(category);
+                raiseQuestionWarning(true);
+              } else setSelectedCategory(category);
+            } else setSelectedCategory(category);
           }}
         >
-          <TouchableOpacity
-            onPress={() => {
-              if (
-                selectedCategory !== undefined &&
-                selectedCategory.name === category.name
-              )
-                setSelectedCategory(undefined);
-              else setSelectedCategory(category);
-            }}
+          <Animated.View
             style={{
-              padding: 20,
-              flexDirection: "row",
-              alignSelf: "center",
-              alignItems: "center",
-              justifyContent: "center",
+              borderWidth: 2.5,
               borderRadius: 5,
+              borderColor: "#853b30",
+              backgroundColor: colorChangeRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["#FFF", "#853b30"],
+              }),
             }}
           >
-            <Animated.Text
+            <View
               style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 20,
-                color: colorChangeRef.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["#853b30", "#FFF"],
-                }),
+                padding: 20,
+                flexDirection: "row",
+                alignSelf: "center",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 5,
               }}
             >
-              {name}
-            </Animated.Text>
-            <Spacer height="100%" width={20} />
-            <AnimatedIcon
-              name={iconName}
-              style={{
-                fontSize: 20,
-                color: colorChangeRef.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["#853b30", "#FFF"],
-                }),
-              }}
-            />
-          </TouchableOpacity>
-        </Animated.View>
+              <Animated.Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 20,
+                  color: colorChangeRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["#853b30", "#FFF"],
+                  }),
+                }}
+              >
+                {name}
+              </Animated.Text>
+              <Spacer height="100%" width={20} />
+              <AnimatedIcon
+                name={iconName}
+                style={{
+                  fontSize: 20,
+                  color: colorChangeRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["#853b30", "#FFF"],
+                  }),
+                }}
+              />
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
         <Spacer width="100%" height={20} />
       </>
     );
   };
 
+  const [warnedCategory, setWarnedCategory] = useState<Category>(undefined);
   const [triggerFade, setTriggerFade] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<
     Category | undefined
-  >(undefined);
+  >(
+    editQuestion !== undefined
+      ? getCategoryFromName(editQuestion.category)
+      : undefined
+  );
   const buttonFadeRef = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     setTriggerFade(selectedCategory !== undefined);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    if (questionWarning === -1) {
+      setSelectedCategory(warnedCategory);
+      setWarnedCategory(undefined);
+
+      // TODO: make this change if necessary
+      // for now, it just shows the category change warning
+      // on the first change.
+      // raiseQuestionWarning(false);
+    }
+  }, [questionWarning]);
 
   useEffect(() => {
     if (triggerFade)
@@ -381,16 +443,17 @@ const CategoryList = ({
 };
 
 const AddQuestionSubModal = ({
-  question,
+  editQuestion,
   addQuestionActive,
   setAddAnswersActive,
 }: AddQuestionSubModalProps) => {
+  const [questionWarning, raiseQuestionWarning] = useState<boolean | -1>(false);
   const shrinkRef = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(shrinkRef, {
       toValue: addQuestionActive ? 1 : 0,
-      duration: 500,
+      duration: 250,
       useNativeDriver: true,
     }).start();
   }, [addQuestionActive]);
@@ -420,287 +483,111 @@ const AddQuestionSubModal = ({
       >
         Question Type
       </Text>
-      <CategoryList setAddAnswersActive={setAddAnswersActive} />
+      <CategoryList
+        questionWarning={questionWarning}
+        setAddAnswersActive={setAddAnswersActive}
+        editQuestion={editQuestion}
+        raiseQuestionWarning={raiseQuestionWarning}
+      />
       <Spacer width={"100%"} height={40} />
-    </Animated.View>
-  );
-};
-
-const MCAnswer = ({
-  answers,
-  answer,
-  index,
-  setAnswers,
-}: {
-  answers: string[];
-  answer: string;
-  index: number;
-  setAnswers: React.Dispatch<React.SetStateAction<string[]>>;
-}) => {
-  const [open, setOpen] = useState(false);
-  const growAnimationRef = useRef(new Animated.Value(0)).current;
-  const deleteButtonGrow = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(growAnimationRef, {
-      toValue: 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  useEffect(() => {
-    Animated.timing(deleteButtonGrow, {
-      toValue: open ? 1 : 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start();
-  }, [open]);
-
-  return (
-    <Animated.View style={{ transform: [{ scale: growAnimationRef }] }}>
-      <Pressable
-        onPress={() => setOpen(!open)}
-        style={{
-          justifyContent: "center",
-          width: 300,
-          alignSelf: "center",
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "#853b30",
-        }}
+      <Modal
+        visible={questionWarning === true}
+        transparent
+        animationType="fade"
       >
-        <Text
-          style={{
-            color: "#FFF",
-            fontFamily: "Lato_400Regular",
-            fontSize: 20,
-            padding: 20,
-          }}
-        >
-          {answer}
-        </Text>
-        <Animated.View
+        <View
           style={[
             styles.centerView,
             {
-              position: "absolute",
-              backgroundColor: "#FFF",
+              width: "100%",
               height: "100%",
-              right: 0,
-              borderColor: "#853b30",
-              width: deleteButtonGrow.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 75],
-              }),
-              borderWidth: deleteButtonGrow.interpolate({
-                inputRange: [0, 0.05],
-                outputRange: [0, 2.5],
-                extrapolate: "clamp",
-              }),
+              backgroundColor: "#00000090",
             },
           ]}
         >
-          <TouchableOpacity
-            onPress={() =>
-              setAnswers(
-                answers.filter((_val, curr_index) => curr_index !== index)
-              )
-            }
-            style={[styles.centerView, { width: "100%", height: "100%" }]}
-          >
-            <FontAwesome5
-              name="trash-alt"
-              style={{ fontSize: 25, color: "#853b30" }}
-            />
-          </TouchableOpacity>
-        </Animated.View>
-      </Pressable>
-      {index !== answers.length - 1 && (
-        <>
-          <Spacer width="100%" height={20} />
           <View
             style={{
-              backgroundColor: "#853b3025",
-              width: "100%",
-              height: 1,
+              width: 300,
+              height: 300,
+              borderRadius: 10,
+              backgroundColor: "#FFF",
+              padding: 20,
             }}
-          />
-          <Spacer width="100%" height={20} />
-        </>
-      )}
+          >
+            <Text
+              style={{
+                fontFamily: "Lato_400Regular",
+                fontSize: 20,
+                color: "#853b30",
+                alignSelf: "center",
+              }}
+            >
+              Category Change Warning!
+            </Text>
+            <View style={[styles.centerView, { width: "100%", flex: 1 }]}>
+              <Text
+                style={{
+                  fontFamily: "Lato_700Bold",
+                  fontSize: 17.5,
+                  color: "#853b30",
+                  alignSelf: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 17.5,
+                    color: "#853b30",
+                    alignSelf: "center",
+                  }}
+                >
+                  Are you sure you want to change categories?
+                </Text>
+                {" The current answers to your question will not be preserved."}
+              </Text>
+              <Spacer width="100%" height={20} />
+              <View
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <TouchableOpacity
+                  onPress={() => raiseQuestionWarning(-1)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: "#853b30",
+                    borderRadius: 5,
+                  }}
+                >
+                  <Text
+                    style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}
+                  >
+                    Yes, Change My Category
+                  </Text>
+                </TouchableOpacity>
+                <Spacer width="100%" height={10} />
+                <TouchableOpacity
+                  onPress={() => raiseQuestionWarning(false)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: "#853b30",
+                    borderRadius: 5,
+                  }}
+                >
+                  <Text
+                    style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}
+                  >
+                    No, Take Me Back
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
-  );
-};
-
-const MCAnswers = ({
-  userData,
-  answers,
-  setAnswers,
-  question,
-  questions,
-  setQuestions,
-  setVisible,
-  questionsModalActive,
-}: {
-  userData: AddQuestionsModal2Props["userData"];
-  question: string;
-  answers: string[];
-  setAnswers: React.Dispatch<React.SetStateAction<string[]>>;
-  questions: Question[];
-  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
-  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
-  questionsModalActive: PollDraftInfo;
-}) => {
-  const [newAnswer, setNewAnswer] = useState("");
-  const [triggerFade, setTriggerFade] = useState(false);
-  const [buttonDisabled, setButtonDisabled] = useState(false);
-  const buttonFadeRef = useRef(new Animated.Value(0)).current;
-  const submitButtonRef = useRef(new Animated.Value(0)).current;
-  const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
-
-  useEffect(() => {
-    if (newAnswer === "") setTriggerFade(false);
-    else setTriggerFade(!answers.includes(newAnswer));
-  }, [newAnswer]);
-
-  useEffect(() => {
-    Animated.timing(buttonFadeRef, {
-      toValue: triggerFade ? 1 : 0,
-      duration: 250,
-      useNativeDriver: false,
-    }).start();
-  }, [triggerFade]);
-
-  useEffect(() => {
-    Animated.timing(submitButtonRef, {
-      toValue: answers.length === 0 ? 0 : 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [answers]);
-
-  return (
-    <View style={{ flex: 1, width: "100%" }}>
-      <View style={{ flexDirection: "row" }}>
-        <TextInput
-          multiline
-          selectionColor={"#FFF"}
-          value={newAnswer}
-          onChangeText={(text) => setNewAnswer(text)}
-          style={{
-            flex: 1,
-            minHeight: 50,
-            maxHeight: 200,
-            backgroundColor: "#853b30",
-            borderRadius: 5,
-            padding: 10,
-            paddingTop: 15,
-            fontFamily: "Lato_400Regular",
-            fontSize: 17.5,
-            color: "#FFF",
-            alignItems: "center",
-          }}
-        />
-        <AnimatedSpacer
-          height="100%"
-          width={buttonFadeRef.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0, 20],
-          })}
-        />
-        <AnimatedTouchable
-          disabled={newAnswer === ""}
-          onPress={() => {
-            setAnswers(answers.concat(newAnswer));
-            setNewAnswer("");
-          }}
-          style={[
-            styles.centerView,
-            {
-              backgroundColor: "#853b30",
-              borderRadius: 5,
-              opacity: buttonFadeRef,
-              padding: buttonFadeRef.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 10],
-              }),
-              height: buttonFadeRef.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 50],
-              }),
-              width: buttonFadeRef.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 50],
-              }),
-            },
-          ]}
-        >
-          <Animated.Text
-            style={{
-              color: "#FFF",
-              fontFamily: "Lato_400Regular",
-              fontSize: 17.5,
-              opacity: buttonFadeRef.interpolate({
-                inputRange: [0.975, 1],
-                outputRange: [0, 1],
-                extrapolate: "clamp",
-              }),
-            }}
-          >
-            Add
-          </Animated.Text>
-        </AnimatedTouchable>
-      </View>
-
-      <Spacer width="100%" height={40} />
-      <ScrollView style={{ flex: 1 }}>
-        {answers.map((answer, index) => (
-          <MCAnswer
-            key={index}
-            {...{ answer, answers, index, setAnswers, questions, setQuestions }}
-          />
-        ))}
-        <Spacer width="100%" height={40} />
-        <AnimatedTouchable
-          disabled={answers.length === 0 || buttonDisabled}
-          onPress={async () => {
-            createDraftQuestion(userData.id, questionsModalActive.id, {
-              answers,
-              question,
-              category: "Multiple Choice",
-            }).then(() => setVisible(false));
-            setButtonDisabled(true);
-            setQuestions(
-              questions.concat({
-                answers,
-                question,
-                category: "Multiple Choice",
-              })
-            );
-            setVisible(false);
-          }}
-          style={{
-            alignSelf: "center",
-            padding: 12.5,
-            backgroundColor: "#853b30",
-            borderRadius: 5,
-            opacity: submitButtonRef,
-          }}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontFamily: "Lato_400Regular",
-              fontSize: 17.5,
-            }}
-          >
-            Submit
-          </Text>
-        </AnimatedTouchable>
-        <Spacer width="100%" height={40} />
-      </ScrollView>
-    </View>
   );
 };
 
@@ -708,27 +595,39 @@ const AddAnswers = ({
   userData,
   question,
   addAnswersActive,
+  setAddAnswersActive,
   questions,
   setQuestions,
   setVisible,
   questionsModalActive,
+  editQuestion,
+  setEditQuestion,
+  setDraftsChanged,
 }: {
   userData: AddQuestionsModal2Props["userData"];
   question: string;
-  addAnswersActive: Category | undefined;
   questions: Question[];
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
   questionsModalActive: PollDraftInfo;
+  editQuestion: Question | undefined;
+  setEditQuestion: React.Dispatch<React.SetStateAction<Question | undefined>>;
+  addAnswersActive: Category | undefined;
+  setAddAnswersActive: React.Dispatch<
+    React.SetStateAction<Category | undefined>
+  >;
+  setDraftsChanged: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<string[]>(
+    editQuestion === undefined ? [] : editQuestion.answers
+  );
   const shrinkRef = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(shrinkRef, {
-      delay: 500,
+      delay: 250,
       toValue: addAnswersActive === undefined ? 0 : 1,
-      duration: 500,
+      duration: 250,
       useNativeDriver: true,
     }).start();
   }, [addAnswersActive]);
@@ -748,30 +647,105 @@ const AddAnswers = ({
         },
       ]}
     >
-      <Text
-        style={{
-          fontFamily: "Lato_400Regular",
-          fontSize: 20,
-          alignSelf: "flex-start",
-          color: "#853b30",
-        }}
-      >
-        Answers
-      </Text>
-      <Spacer width="100%" height={20} />
       {addAnswersActive !== undefined &&
-        addAnswersActive.name === "Multiple Choice" && (
-          <MCAnswers
-            userData={userData}
-            question={question}
-            answers={answers}
-            setAnswers={setAnswers}
-            questions={questions}
-            setQuestions={setQuestions}
-            setVisible={setVisible}
-            questionsModalActive={questionsModalActive}
-          />
-        )}
+        (() => {
+          switch (addAnswersActive.name) {
+            case "Multiple Choice":
+              return (
+                <>
+                  <Text
+                    style={{
+                      fontFamily: "Lato_400Regular",
+                      fontSize: 20,
+                      alignSelf: "flex-start",
+                      color: "#853b30",
+                    }}
+                  >
+                    Answers
+                  </Text>
+                  <Spacer width="100%" height={20} />
+                  <MCAnswers
+                    editQuestion={editQuestion}
+                    userData={userData}
+                    question={question}
+                    answers={answers}
+                    setAnswers={setAnswers}
+                    questions={questions}
+                    setQuestions={setQuestions}
+                    setVisible={setVisible}
+                    questionsModalActive={questionsModalActive}
+                    setEditQuestion={setEditQuestion}
+                    setAddAnswersActive={setAddAnswersActive}
+                    setDraftsChanged={setDraftsChanged}
+                  />
+                </>
+              );
+            case "Free Response":
+              return (
+                <FreeResponseAnswers
+                  userData={userData}
+                  question={question}
+                  questions={questions}
+                  setVisible={setVisible}
+                  setQuestions={setQuestions}
+                  editQuestion={editQuestion}
+                  setEditQuestion={setEditQuestion}
+                  setAddAnswersActive={setAddAnswersActive}
+                  questionsModalActive={questionsModalActive}
+                  setDraftsChanged={setDraftsChanged}
+                />
+              );
+            case "Range (Slider)":
+              return (
+                <SliderAnswer
+                  {...{
+                    editQuestion,
+                    question,
+                    questions,
+                    questionsModalActive,
+                    setAddAnswersActive,
+                    setEditQuestion,
+                    setQuestions,
+                    setVisible,
+                    userData,
+                    setDraftsChanged,
+                  }}
+                />
+              );
+            case "Ranking":
+              return (
+                <>
+                  <Text
+                    style={{
+                      fontFamily: "Lato_400Regular",
+                      fontSize: 20,
+                      alignSelf: "flex-start",
+                      color: "#853b30",
+                    }}
+                  >
+                    Add Items
+                  </Text>
+                  <Spacer width="100%" height={20} />
+                  <RankingAnswers
+                    {...{
+                      editQuestion,
+                      question,
+                      questions,
+                      questionsModalActive,
+                      setAddAnswersActive,
+                      setEditQuestion,
+                      setQuestions,
+                      setVisible,
+                      userData,
+                      answers,
+                      setAnswers,
+                      setDraftsChanged,
+                    }}
+                  />
+                </>
+              );
+          }
+        })()}
     </Animated.View>
   );
 };
@@ -783,6 +757,9 @@ const AddQuestion = ({
   questions,
   setQuestions,
   questionsModalActive,
+  editQuestion,
+  setEditQuestion,
+  setDraftsChanged,
 }: AddQuestionsProps) => {
   const [question, setQuestion] = useState("");
   const [addQuestionActive, setAddQuestionActive] = useState(false);
@@ -805,12 +782,17 @@ const AddQuestion = ({
       setAddQuestionActive(false);
       setQuestionTitleActive(false);
       setAddAnswersActive(undefined);
+      setEditQuestion(undefined);
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (editQuestion !== undefined) setQuestion(editQuestion.question);
+  }, [editQuestion]);
+
   return (
     <Modal
-      visible={visible}
+      visible={visible || editQuestion !== undefined}
       animationType="slide"
       presentationStyle="pageSheet"
     >
@@ -828,6 +810,13 @@ const AddQuestion = ({
             { padding: 20, position: "absolute", zIndex: 2 },
           ]}
           onPress={() => {
+            if (editQuestion !== undefined) {
+              setQuestion("");
+              setAddQuestionActive(false);
+              setQuestionTitleActive(false);
+              setAddAnswersActive(undefined);
+              setEditQuestion(undefined);
+            }
             setVisible(false);
           }}
         >
@@ -837,7 +826,7 @@ const AddQuestion = ({
           />
         </TouchableOpacity>
         <Text style={{ alignSelf: "center", fontSize: 30, color: "#853b30" }}>
-          Add Question
+          {editQuestion === undefined ? "Add Question" : "Edit Question"}
         </Text>
         <Spacer width="100%" height={40} />
         <EnterQuestionTitle
@@ -845,43 +834,336 @@ const AddQuestion = ({
             question,
             setQuestion,
             setAddQuestionActive,
+            editQuestion,
           }}
         />
         <AddQuestionSubModal
+          userData={userData}
+          pollID={questionsModalActive.id}
           question={question}
+          editQuestion={editQuestion}
           addQuestionActive={addQuestionActive}
           setAddAnswersActive={setAddAnswersActive}
         />
         <AddAnswers
+          editQuestion={editQuestion}
           userData={userData}
           addAnswersActive={addAnswersActive}
+          setAddAnswersActive={setAddAnswersActive}
           question={question}
           questions={questions}
           setQuestions={setQuestions}
           setVisible={setVisible}
           questionsModalActive={questionsModalActive}
+          setEditQuestion={setEditQuestion}
+          setDraftsChanged={setDraftsChanged}
         />
       </View>
     </Modal>
   );
 };
 
+const QuestionButtons = ({
+  question,
+  growRef,
+  setIsOpen,
+  setDeleting,
+  setEditQuestion,
+}: QuestionButtonsProps) => {
+  const [triggerDelete, setTriggerDelete] = useState(false);
+  const deletePromptGrow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(deletePromptGrow, {
+      toValue: triggerDelete ? 1 : 0,
+      duration: 450,
+      useNativeDriver: false,
+    }).start();
+  }, [triggerDelete]);
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        borderBottomColor: "#853b30",
+        backgroundColor: "#FFF",
+        alignSelf: "center",
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        height: growRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0%", "100%"],
+        }),
+      }}
+    >
+      <Animated.View
+        style={{
+          width: "30%",
+          opacity: growRef.interpolate({
+            inputRange: [0.75, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => setEditQuestion(question)}
+          style={{
+            backgroundColor: "#853b30",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 10,
+            borderRadius: 5,
+          }}
+        >
+          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+            Edit
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+      <Spacer width="100%" height={10} />
+      <Animated.View
+        style={{
+          width: "30%",
+          opacity: growRef.interpolate({
+            inputRange: [0.75, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => setTriggerDelete(true)}
+          style={{
+            backgroundColor: "#853b30",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 10,
+            borderRadius: 5,
+          }}
+        >
+          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+            Delete
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+      <Spacer width="100%" height={10} />
+      <Animated.View
+        style={{
+          width: "30%",
+          opacity: growRef.interpolate({
+            inputRange: [0.75, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          }),
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => setIsOpen(false)}
+          style={{
+            backgroundColor: "#853b30",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 10,
+            borderRadius: 5,
+          }}
+        >
+          <Text style={{ color: "#FFF", fontFamily: "Lato_400Regular" }}>
+            Back
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+      <Animated.View
+        style={{
+          alignSelf: "center",
+          position: "absolute",
+          backgroundColor: "#FFF",
+          padding: deletePromptGrow.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 10],
+          }),
+          width: deletePromptGrow.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["0%", "100%"],
+          }),
+          height: deletePromptGrow.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["0%", "100%"],
+          }),
+        }}
+      >
+        <Animated.Text
+          style={{
+            color: "#853b30",
+            fontFamily: "Lato_400Regular",
+            fontSize: 20,
+            alignSelf: "center",
+            opacity: deletePromptGrow.interpolate({
+              inputRange: [0.9, 1],
+              outputRange: [0, 1],
+              extrapolate: "clamp",
+            }),
+          }}
+        >
+          Deleting Question!
+        </Animated.Text>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <Animated.Text
+            style={{
+              width: "90%",
+              alignSelf: "center",
+              borderRadius: deletePromptGrow.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["50%", "0%"],
+                extrapolate: "clamp",
+              }),
+              opacity: deletePromptGrow.interpolate({
+                inputRange: [0.9, 1],
+                outputRange: [0, 1],
+                extrapolate: "clamp",
+              }),
+            }}
+          >
+            <Text
+              style={{
+                color: "#853b30",
+                fontFamily: "Lato_400Regular",
+                fontSize: 15,
+                flexDirection: "row",
+              }}
+            >
+              Are you sure you want to delete this question?
+            </Text>
+            <Text
+              style={{
+                color: "#853b30",
+                fontFamily: "Lato_700Bold",
+                fontSize: 15,
+                flexDirection: "row",
+              }}
+            >
+              {" This cannot be undone."}
+            </Text>
+          </Animated.Text>
+          <Spacer width="100%" height={20} />
+          <View
+            style={{
+              width: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Animated.View
+              style={{
+                transform: [{ scale: deletePromptGrow }],
+                opacity: deletePromptGrow.interpolate({
+                  inputRange: [0.9, 1],
+                  outputRange: [0, 1],
+                  extrapolate: "clamp",
+                }),
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setDeleting(question)}
+                style={{
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                  padding: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 12.5,
+                    color: "#FFF",
+                  }}
+                >
+                  Yes, Delete This Question.
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+            <Spacer width="100%" height={10} />
+            <Animated.View
+              style={{
+                transform: [{ scale: deletePromptGrow }],
+                opacity: deletePromptGrow.interpolate({
+                  inputRange: [0.9, 1],
+                  outputRange: [0, 1],
+                  extrapolate: "clamp",
+                }),
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setTriggerDelete(false)}
+                style={{
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                  padding: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 12.5,
+                    color: "#FFF",
+                  }}
+                >
+                  No, Take Me Back
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+};
+
 const QuestionComponent = ({
   question,
   last,
+  setDeleting,
+  setEditQuestion,
 }: {
+  questionsModalActive: PollDraftInfo;
+  userData: AddQuestionsModal2Props["userData"];
   question: Question;
   last: boolean;
+  setDeleting: React.Dispatch<React.SetStateAction<Question | undefined>>;
+  setEditQuestion: React.Dispatch<React.SetStateAction<Question | undefined>>;
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const growRef = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(growRef, {
+      toValue: isOpen ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [isOpen]);
+
   return (
     <>
-      <View
+      <Pressable
+        disabled={isOpen}
+        onPress={() => setIsOpen(true)}
+        onLongPress={() => {
+          if (!isOpen) {
+            Haptics.selectionAsync();
+            setIsOpen(true);
+          }
+        }}
         style={{
           width: 300,
           minHeight: 200,
           borderLeftWidth: 2.5,
           borderTopWidth: 2.5,
           borderRightWidth: 2.5,
+          borderBottomWidth: 2.5,
           borderColor: "#853b30",
           backgroundColor: "#853b30",
           alignSelf: "center",
@@ -890,7 +1172,12 @@ const QuestionComponent = ({
         <View
           style={[
             styles.centerView,
-            { width: "100%", minHeight: 50, backgroundColor: "#FFF" },
+            {
+              width: "100%",
+              minHeight: 50,
+              backgroundColor: "#FFF",
+              padding: 10,
+            },
           ]}
         >
           <Text
@@ -910,23 +1197,49 @@ const QuestionComponent = ({
             padding: 20,
           }}
         >
-          {question.answers.map((answer, index) => {
-            return (
-              <Text
-                key={index}
-                style={{
-                  textAlign: "center",
-                  fontFamily: "Lato_400Regular",
-                  fontSize: 17.5,
-                  color: "#FFF",
-                }}
-              >
-                {answer}
-              </Text>
-            );
-          })}
+          {(() => {
+            switch (question.category) {
+              case "Free Response":
+                return (
+                  <FreeResponseQuestionPreview
+                    multiline={question.multiline}
+                    letterCount={question.letterCount}
+                    wordCount={question.wordCount}
+                  />
+                );
+              case "Range (Slider)":
+                return (
+                  <SliderAnswerQuestionPreview
+                    minRange={question.minRange}
+                    maxRange={question.maxRange}
+                    inDollars={question.dollarSign}
+                  />
+                );
+              default:
+                return question.answers.map((answer, index) => (
+                  <Text
+                    key={index}
+                    style={{
+                      textAlign: "center",
+                      fontFamily: "Lato_400Regular",
+                      fontSize: 17.5,
+                      color: "#FFF",
+                    }}
+                  >
+                    {answer}
+                  </Text>
+                ));
+            }
+          })()}
         </View>
-      </View>
+        <QuestionButtons
+          question={question}
+          growRef={growRef}
+          setIsOpen={setIsOpen}
+          setDeleting={setDeleting}
+          setEditQuestion={setEditQuestion}
+        />
+      </Pressable>
       {!last && (
         <>
           <Spacer width="100%" height={20} />
@@ -936,6 +1249,7 @@ const QuestionComponent = ({
           <Spacer width="100%" height={20} />
         </>
       )}
+      {last && <Spacer width="100%" height={80} />}
     </>
   );
 };
@@ -944,19 +1258,41 @@ export default function AddQuestionsModal2({
   userData,
   questionsModalActive,
   setQuestionsModalActive,
+  setDraftsChanged,
 }: AddQuestionsModal2Props) {
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [addModalActive, setAddModalActive] = useState(false);
+  const [deleting, setDeleting] = useState<Question | undefined>(undefined);
+  const [editQuestion, setEditQuestion] = useState<Question | undefined>(
+    undefined
+  );
 
   useEffect(() => {
-    if (questionsModalActive !== undefined)
+    if (questionsModalActive !== undefined) {
+      setLoading(true);
       getDraftQuestions(userData.id, questionsModalActive.id).then((result) => {
         setQuestions(result);
         setLoading(false);
       });
-    else setQuestions([]);
+    } else setQuestions([]);
   }, [questionsModalActive]);
+
+  useEffect(() => {
+    if (deleting !== undefined) {
+      deleteDraftQuestion(
+        userData.id,
+        questionsModalActive.id,
+        deleting.id
+      ).then(() => setDeleting(undefined));
+    } else if (deleting === undefined && questionsModalActive) {
+      setLoading(true);
+      getDraftQuestions(userData.id, questionsModalActive.id).then((result) => {
+        setQuestions(result);
+        setLoading(false);
+      });
+    }
+  }, [deleting]);
 
   return (
     <Modal animationType="slide" visible={questionsModalActive !== undefined}>
@@ -1007,13 +1343,17 @@ export default function AddQuestionsModal2({
         ) : questions.length === 0 ? (
           <Empty />
         ) : (
-          <ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false}>
             {questions.map((val, index) => {
               return (
                 <QuestionComponent
                   key={index}
                   question={val}
+                  userData={userData}
                   last={index == questions.length - 1}
+                  questionsModalActive={questionsModalActive}
+                  setEditQuestion={setEditQuestion}
+                  setDeleting={setDeleting}
                 />
               );
             })}
@@ -1043,10 +1383,13 @@ export default function AddQuestionsModal2({
       <AddQuestion
         userData={userData}
         questionsModalActive={questionsModalActive}
+        editQuestion={editQuestion}
         visible={addModalActive}
         setVisible={setAddModalActive}
         questions={questions}
         setQuestions={setQuestions}
+        setEditQuestion={setEditQuestion}
+        setDraftsChanged={setDraftsChanged}
       />
     </Modal>
   );

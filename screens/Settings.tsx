@@ -1,44 +1,63 @@
-import { StyleSheet, Text, FlatList } from "react-native";
+import { auth } from "../firebase";
+import { signOut } from "firebase/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { IntakeSurveyIndicator } from "../components/IntakeSurvey";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 
 export default function Settings({ route, navigation }) {
-  const { userData } = route.params;
+  const { userData, triggerSignOut } = route.params;
 
   return (
-    <SafeAreaView style={[styles.mainContainer, styles.centerView]}>
-      <Text style={styles.titleText}>Settings</Text>
-      {!userData.intakeSurvey && (
-        <IntakeSurveyIndicator navigation={navigation} />
-      )}
-      {/* <FlatList
-        style={styles.scrollView}
-        data={data}
-        renderItem={({ item }) => <Text>Yo</Text>}
-      ></FlatList> */}
+    <SafeAreaView style={{ width: "100%", height: "100%" }}>
+      <Text
+        style={[
+          styles.titleText,
+          { color: userData.admin ? "#853b30" : "#507DBC" },
+        ]}
+      >
+        Settings
+      </Text>
+      <View
+        style={{
+          flex: 1,
+          width: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => {
+            signOut(auth);
+            triggerSignOut(true);
+          }}
+          style={{
+            padding: 15,
+            borderRadius: 5,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: userData.admin ? "#853b30" : "#507DBC",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              alignSelf: "center",
+              fontFamily: "Lato_400Regular",
+              color: "#FFF",
+            }}
+          >
+            Sign Out
+          </Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#FFF",
-  },
-  centerView: {
-    display: "flex",
-    alignItems: "center",
-  },
   titleText: {
     fontFamily: "Lato_400Regular",
     fontSize: 30,
-    textAlign: "center",
-    color: "#507DBC",
-    fontWeight: "bold",
-  },
-  scrollView: {
-    width: "100%",
-    flex: 1,
+    alignSelf: "center",
+    top: -20,
   },
 });

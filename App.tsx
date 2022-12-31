@@ -3,7 +3,10 @@ import { NavigationContainer } from "@react-navigation/native";
 import { Stack } from "./constants/navigation";
 import Homepage from "./screens/Homepage";
 import Register from "./screens/Register";
-import Login from "./screens/Login";
+import Login, {
+  ForgotPassword,
+  ForgottenPasswordEmailSent,
+} from "./screens/Login";
 import { auth } from "./firebase";
 import { View } from "react-native";
 import LoadingScreen from "./components/LoadingScreen";
@@ -11,13 +14,18 @@ import {
   useFonts,
   Lato_400Regular,
   Lato_700Bold,
+  Lato_400Regular_Italic,
 } from "@expo-google-fonts/lato";
 import UserHomeScreen from "./screens/UserHomeScreen";
 import Poll from "./screens/Poll";
 import CreatePollScreen from "./screens/CreatePollScreen";
 
 export default function App() {
-  const [fontsLoaded] = useFonts({ Lato_400Regular, Lato_700Bold });
+  const [fontsLoaded] = useFonts({
+    Lato_400Regular,
+    Lato_700Bold,
+    Lato_400Regular_Italic,
+  });
   const [user, setUser] = useState(undefined);
 
   useEffect(() => {
@@ -27,7 +35,7 @@ export default function App() {
   }, []);
 
   if (!fontsLoaded) return <View />;
-  if (user === undefined) return <LoadingScreen />;
+  if (user === undefined) return <LoadingScreen color="#507DBC" />;
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -49,6 +57,11 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPassword}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="UserHomeScreen"
           component={UserHomeScreen}
           options={{ headerShown: false }}
@@ -66,6 +79,11 @@ export default function App() {
         <Stack.Screen
           name="CreatePollScreen"
           component={CreatePollScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ForgottenPasswordEmailSent"
+          component={ForgottenPasswordEmailSent}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

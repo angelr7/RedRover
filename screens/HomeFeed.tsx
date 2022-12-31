@@ -90,9 +90,7 @@ interface GlobalEngagementTabsProps {
   setCurrTitle: React.Dispatch<React.SetStateAction<AcceptedTitle>>;
   setCurrVal: React.Dispatch<React.SetStateAction<number>>;
 }
-interface TopLogoBar {
-  setPolls: React.Dispatch<React.SetStateAction<PollData[]>>;
-}
+interface TopLogoBar {}
 interface NoPollsProps {
   isAdmin: boolean;
 }
@@ -154,7 +152,7 @@ const handleFilterSwap = (
   }, [filterSelected]);
 };
 
-const TopLogoBar = ({ setPolls }: TopLogoBar) => {
+const TopLogoBar = () => {
   const [animationTriggered, setAnimationTriggered] = useState(false);
   const [animationVal, setAnimationVal] = useState(0);
   const spinAnimationRef = useRef(new Animated.Value(0)).current;
@@ -171,17 +169,6 @@ const TopLogoBar = ({ setPolls }: TopLogoBar) => {
       spinAnimationRef.setValue(0);
     }
   }, [animationTriggered, animationVal]);
-
-  useEffect(() => {
-    if (animationTriggered) {
-      getAllPolls().then((result) => {
-        const pollData: PollData[] = [];
-        for (const item of result) pollData.push(getPollDataFromDocData(item));
-        setPolls(pollData);
-        setAnimationTriggered(false);
-      });
-    }
-  }, [animationTriggered]);
 
   return (
     <View style={styles.topLogoContainer}>
@@ -843,56 +830,11 @@ const NoPolls = ({ isAdmin }: NoPollsProps) => {
 };
 
 export default function HomeFeed({ route, navigation }) {
-  const [polls, setPolls] = useState<PollData[]>(undefined);
   const { userData } = route.params;
   const isAdmin = userData.admin;
 
-  useEffect(() => {
-    getAllPolls().then((result) => {
-      const pollData: PollData[] = [];
-      for (const item of result) {
-        pollData.push(getPollDataFromDocData(item));
-      }
-      setPolls(pollData);
-    });
-  }, []);
-
   return (
     <SafeAreaView style={[styles.mainContainer]}>
-      {polls === undefined && (
-        <LoadingScreen color={isAdmin ? "#FFF" : "#507DBC"} />
-      )}
-      {polls !== undefined && polls.length === 0 && (
-        <NoPolls isAdmin={isAdmin} />
-      )}
-      {polls !== undefined && polls.length >= 0 && (
-        <>
-          <TopLogoBar setPolls={setPolls} />
-          {!isAdmin && !userData.intakeSurvey ? (
-            <IntakeSurveyIndicator navigation={navigation} />
-          ) : (
-            <FlatList
-              style={[
-                styles.scrollView,
-                { paddingTop: 30, paddingBottom: 500 },
-              ]}
-              contentContainerStyle={{ alignItems: "center" }}
-              data={polls}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item, index }) => {
-                return (
-                  <PollPreview
-                    isAdmin={isAdmin}
-                    isLast={index === polls.length - 1}
-                    pollData={item}
-                    navigation={navigation}
-                  />
-                );
-              }}
-            />
-          )}
-        </>
-      )}
     </SafeAreaView>
   );
 }

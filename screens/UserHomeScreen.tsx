@@ -6,16 +6,23 @@ import Settings from "./Settings";
 import CreatePolls from "./CreatePolls";
 import CreatePolls2 from "./CreatePolls2";
 import { useEffect, useState } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, LogBox } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, getUserData } from "../firebase";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import { StatusBar } from "expo-status-bar";
+import LikedFeed from "./LikedFeed";
 
 const BottomTabs = createBottomTabNavigator();
 
-type RouteLabel = "bar-chart" | "home" | "compass" | "create" | "settings";
+type RouteLabel =
+  | "bar-chart"
+  | "home"
+  | "compass"
+  | "create"
+  | "settings"
+  | "heart";
 
 type IconLabel =
   | "bar-chart"
@@ -27,7 +34,9 @@ type IconLabel =
   | "create"
   | "create-outline"
   | "settings"
-  | "settings-outline";
+  | "settings-outline"
+  | "heart"
+  | "heart-outline";
 
 interface UserInfo {
   createdAt: string;
@@ -55,11 +64,12 @@ function TabBar({ state, descriptors, navigation, admin }) {
       {state.routes.map(
         (route: { key: string | number; name: any }, index: any) => {
           const { options } = descriptors[route.key];
-          const label: RouteLabel = route.name;
+          let label: RouteLabel = route.name;
+
           let screenName: string;
           switch (label) {
             case "home":
-              screenName = "Home";
+              screenName = admin ? "Home" : "Liked";
               break;
             case "compass":
               screenName = "Explore";
@@ -77,6 +87,8 @@ function TabBar({ state, descriptors, navigation, admin }) {
               screenName = label;
               break;
           }
+
+          if (label === "home" && screenName === "Liked") label = "heart";
 
           const isFocused = state.index === index;
 
@@ -135,12 +147,26 @@ function TabBar({ state, descriptors, navigation, admin }) {
   );
 }
 
-export default function UserHomeScreen({ navigation }) {
+export default function UserHomeScreen({ navigation, params }) {
   const [userData, setUserData] = useState<UserInfo | undefined>(undefined);
+  const [signoutTriggered, triggerSignOut] = useState(false);
 
   useEffect(() => {
     getUserData(auth.currentUser, setUserData);
   }, []);
+
+  useEffect(() => {
+    if (signoutTriggered) {
+      triggerSignOut(false);
+      // reset the nav stack to prevent back travel
+      // and load in fresh components
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Auth" }],
+      });
+      navigation.navigate("Auth");
+    }
+  }, [signoutTriggered]);
 
   if (userData === undefined) return <LoadingScreen />;
 
@@ -149,7 +175,7 @@ export default function UserHomeScreen({ navigation }) {
       style={[
         styles.container,
         styles.centerView,
-        { backgroundColor: userData.admin ? "#853b30" : "#afc9f9" },
+        { backgroundColor: userData.admin ? "#853b30" : "#507DBC" },
       ]}
     >
       <BottomTabs.Navigator
@@ -171,16 +197,16 @@ export default function UserHomeScreen({ navigation }) {
             />
             <BottomTabs.Screen
               name="settings"
-              component={HomeFeed}
+              component={Settings}
               options={{ headerShown: false }}
-              initialParams={{ userData }}
+              initialParams={{ userData, triggerSignOut }}
             />
           </>
         ) : (
           <>
             <BottomTabs.Screen
               name="home"
-              component={HomeFeed}
+              component={LikedFeed}
               options={{ headerShown: false }}
               initialParams={{ userData }}
             />
@@ -194,7 +220,7 @@ export default function UserHomeScreen({ navigation }) {
               name="settings"
               component={Settings}
               options={{ headerShown: false }}
-              initialParams={{ userData }}
+              initialParams={{ userData, triggerSignOut }}
             />
           </>
         )}
@@ -220,3 +246,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+LogBox.ignoreLogs([
+  "Non-serializable values were found in the navigation state",
+]);

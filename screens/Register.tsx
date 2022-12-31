@@ -8,7 +8,12 @@ import {
   Animated,
   TouchableOpacity,
 } from "react-native";
-import { useFonts, Lato_400Regular } from "@expo-google-fonts/lato";
+import {
+  useFonts,
+  Lato_400Regular,
+  Lato_700Bold,
+  Lato_400Regular_Italic,
+} from "@expo-google-fonts/lato";
 import React, { ReactElement, useEffect, useRef, useState } from "react";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import Spacer from "../components/Spacer";
@@ -280,7 +285,11 @@ const handleKeyboardAnimations = (
 };
 
 export default function Register({ navigation }) {
-  const [fontsLoaded] = useFonts({ Lato_400Regular });
+  const [fontsLoaded] = useFonts({
+    Lato_400Regular,
+    Lato_700Bold,
+    Lato_400Regular_Italic,
+  });
   const moveUpAnimationProgress = useRef(new Animated.Value(0)).current;
   const errorMessageAnimationProgress = useRef(new Animated.Value(0)).current;
 

@@ -65,6 +65,17 @@ interface Answer {
   answerText: string;
   imageData?: Blob | undefined;
 }
+interface QuestionData {
+  category: "Multiple Choice" | "Free Response" | "Ranking" | "Range (Slider)";
+  question: string;
+  answers: string[];
+  letterCount?: number;
+  wordCount?: number;
+  multiline?: boolean;
+  minRange?: number;
+  maxRange?: number;
+  dollarSign?: boolean;
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyBVbrOgLXw-zGVNr_1E20eXJEXvh0Cr-Yo",
@@ -499,9 +510,9 @@ const getPublishedQuestions = async (pollID: string) => {
   return docs.map((doc) => getQuestionFromData(doc));
 };
 
-const getPublishedPolls = async (userID: string) => {
-  const { docs } = await getDocs(collection(db, `published/${userID}`));
-};
+// const getPublishedPolls = async (userID: string) => {
+//   const { docs } = await getDocs(collection(db, `published/${userID}`));
+// };
 
 const removePollDraft = async (userID: string, pollID: string) => {
   const docs = (
@@ -523,23 +534,24 @@ interface PollDraftInfo {
   description: string;
   title: string;
 }
+const parsePollDraft = (doc: any) => {
+  const { additionalInfo, dateCreated, description, title } = doc.data();
+  const { id } = doc;
+  const docInfo: PollDraftInfo = {
+    id,
+    additionalInfo,
+    dateCreated,
+    description,
+    title,
+  };
+  return docInfo;
+};
+
 const getPollDrafts = async (userID: string) => {
   const { docs } = await getDocs(collection(db, `${userID}_drafts`));
-  const parse = (doc: any) => {
-    const { additionalInfo, dateCreated, description, title } = doc.data();
-    const { id } = doc;
-    const docInfo: PollDraftInfo = {
-      id,
-      additionalInfo,
-      dateCreated,
-      description,
-      title,
-    };
-    return docInfo;
-  };
 
   const pollDrafts: PollDraftInfo[] = [];
-  for (const doc of docs) pollDrafts.push(parse(doc));
+  for (const doc of docs) pollDrafts.push(parsePollDraft(doc));
   return pollDrafts;
 };
 
@@ -557,38 +569,101 @@ const createPollDraft = async (userID: string, pollInfo: PollInfo) => {
   return (await getDoc(doc)).data();
 };
 
+const updatePollDraftQuestion = async (
+  userID: string,
+  pollID: string,
+  questionID: string,
+  questionData: QuestionData
+) => {
+  await updateDoc(
+    doc(db, `${userID}_drafts/${pollID}/questions/${questionID}`),
+    {
+      category: questionData.category,
+      question: questionData.question,
+      answers: questionData.answers,
+      ...(questionData.category === "Free Response"
+        ? {
+            letterCount: questionData.letterCount,
+            wordCount: questionData.wordCount,
+            multiline: questionData.multiline,
+          }
+        : {}),
+    }
+  );
+  return questionID;
+};
+
+interface PollInfoWithStatus extends PollInfo {
+  status?: string | undefined;
+}
 const updatePollDraft = async (
   userID: string,
   pollID: string,
-  pollInfo: PollInfo
+  pollInfo: PollInfoWithStatus
 ) => {
   const { title, description, additionalInfo } = pollInfo;
   const docRef = doc(db, `${userID}_drafts/${pollID}`);
+  const { status } = pollInfo;
   await updateDoc(docRef, {
     title,
     description,
     additionalInfo,
     dateCreated: `${moment()}`,
+    ...(status === undefined
+      ? { status: "undefined" }
+      : { status: pollInfo.status }),
   });
+};
+
+interface ExtendedQuestion extends QuestionDataWithID {
+  votes: { answer: string; userID: string }[];
+}
+const publishPollDraft = async (
+  userID: string,
+  pollID: string,
+  expirationTime: { time: number; unit: string }
+) => {
+  const preTaggedQuestions: QuestionDataWithID[] = await getDraftQuestions(
+    userID,
+    pollID
+  );
+  const taggedQuestions: ExtendedQuestion[] = preTaggedQuestions.map((q) => {
+    return { ...q, votes: [] };
+  });
+
+  if (taggedQuestions.length === 0) return -1;
+
+  const documentRef = await getDoc(doc(db, `${userID}_drafts/${pollID}`));
+  const pollData = parsePollDraft(documentRef);
+  const { status } = documentRef.data();
+  if (status === "published") return -2;
+
+  const currTime = moment();
+  const result = await addDoc(collection(db, "published"), {
+    author: userID,
+    pollData,
+    questions: taggedQuestions,
+    createdAt: `${currTime}`,
+    expirationTime: `${currTime.add(expirationTime.time, expirationTime.unit)}`,
+    likes: [],
+  });
+  await addDoc(collection(db, `${userID}_published`), {
+    publishedDocRef: result.id,
+  });
+
+  await updatePollDraft(userID, pollID, { ...pollData, status: "published" });
 };
 
 const createDraftQuestion = async (
   userID: string,
   pollID: string,
-  question: {
-    category:
-      | "Multiple Choice"
-      | "Free Response"
-      | "Ranking"
-      | "Range (Slider)";
-    question: string;
-    answers: string[];
-  }
+  question: QuestionData
 ) => {
   const res = await addDoc(
     collection(db, `${userID}_drafts/${pollID}/questions`),
     question
   );
+  return res.id;
 };
 
 const getDraftQuestions = async (userID: string, pollID: string) => {
@@ -596,43 +671,219 @@ const getDraftQuestions = async (userID: string, pollID: string) => {
     await getDocs(collection(db, `${userID}_drafts/${pollID}/questions`))
   ).docs;
 
-  const toRet: {
-    category:
-      | "Multiple Choice"
-      | "Free Response"
-      | "Ranking"
-      | "Range (Slider)";
-    question: string;
-    answers: string[];
-  }[] = [];
+  const toRet: QuestionDataWithID[] = [];
   for (const d of docs) {
-    const { category, question, answers } = d.data();
-    toRet.push({ category, question, answers });
+    const {
+      category,
+      question,
+      answers,
+      letterCount,
+      wordCount,
+      multiline,
+      minRange,
+      maxRange,
+      dollarSign,
+    } = d.data();
+    const newQuestion: QuestionDataWithID = {
+      category,
+      question,
+      answers,
+      id: d.id,
+    };
+    if (category === "Free Response") {
+      newQuestion.letterCount = letterCount;
+      newQuestion.wordCount = wordCount;
+      newQuestion.multiline = multiline;
+    } else if (category === "Range (Slider)") {
+      newQuestion.minRange = minRange;
+      newQuestion.maxRange = maxRange;
+      newQuestion.dollarSign = dollarSign;
+    }
+    toRet.push(newQuestion);
   }
   return toRet;
 };
 
+const deleteDraftQuestion = async (
+  userID: string,
+  pollID: string,
+  questionID: string
+) => {
+  await deleteDoc(
+    doc(db, `${userID}_drafts/${pollID}/questions/${questionID}`)
+  );
+};
+
+const removeAnswersFromQuestionDraft = async (
+  userID: string,
+  pollID: string,
+  questionID: string
+) => {
+  const res = await getDocs(
+    collection(db, `${userID}_drafts/${pollID}/questions/${questionID}/answers`)
+  );
+  for (const currDoc of res.docs) {
+    await deleteDoc(
+      doc(
+        db,
+        `${userID}_drafts/${pollID}/questions/${questionID}/answers/${currDoc.id}`
+      )
+    );
+  }
+};
+
+interface QuestionDataWithID extends QuestionData {
+  id: string;
+}
+interface PublishedPollData {
+  author: string;
+  createdAt: string;
+  expirationTime: string;
+  pollData: PollDraftInfo;
+  questions: ExtendedQuestion[];
+  likes: { userID: string }[];
+}
+interface PublishedPollWithID extends PublishedPollData {
+  id: string;
+}
+
+const parsePublishedPoll = (doc: any) => {
+  const { author, createdAt, expirationTime, pollData, questions, likes } =
+    doc.data();
+  const toRet: PublishedPollWithID = {
+    author,
+    createdAt,
+    expirationTime,
+    pollData,
+    questions,
+    likes,
+    id: doc.id,
+  };
+  return toRet;
+};
+
+const getPublishedPollsForUser = async (userID: string) => {
+  const docs = (await getDocs(collection(db, `${userID}_published`))).docs;
+  const publishedDocIDs = docs.map((doc) => doc.data().publishedDocRef);
+
+  const publishedPolls: PublishedPollWithID[] = [];
+  for (const docID of publishedDocIDs) {
+    const publishedPoll = parsePublishedPoll(
+      await getDoc(doc(db, `published/${docID}`))
+    );
+    publishedPolls.push(publishedPoll);
+  }
+
+  return publishedPolls;
+};
+
+const getLikedPollsForUser = async (userID: string) => {
+  const likedPolls: PublishedPollWithID[] = [];
+  const publishedPolls = await getPublishedPollsForNonAdmin();
+  for (const poll of publishedPolls) {
+    const { likes } = poll;
+    let liked = false;
+    for (const like of likes) {
+      if (like.userID === userID) {
+        liked = true;
+        break;
+      }
+    }
+
+    if (liked) likedPolls.push(poll);
+  }
+  return likedPolls;
+};
+
+const getPublishedPollsForNonAdmin = async () => {
+  const docs = (await getDocs(collection(db, "published"))).docs;
+  const polls: PublishedPollWithID[] = [];
+  for (const doc of docs) {
+    const publishedPoll = parsePublishedPoll(doc);
+    polls.push(publishedPoll);
+  }
+  return polls;
+};
+
+const submitPollResponse = async (
+  pollData: PublishedPollWithID,
+  userID: string,
+  answers: string[]
+) => {
+  const questions = pollData.questions;
+
+  for (let i = 0; i < questions.length; i++) {
+    const { votes } = questions[i];
+    votes.push({ answer: answers[i], userID });
+  }
+
+  await updateDoc(doc(db, `published/${pollData.id}/`), { questions });
+};
+
+const handleLike = async (userID: string, pollID: string) => {
+  const docRef = doc(db, `published/${pollID}`);
+  const fullPollData = await getDoc(docRef);
+  let likes: { userID: string }[] = fullPollData.data().likes;
+  if (likes === undefined) likes = [];
+  likes.push({ userID });
+  await updateDoc(docRef, { likes });
+};
+
+const handleDislike = async (userID: string, pollID: string) => {
+  const docRef = doc(db, `published/${pollID}`);
+  const fullPollData = await getDoc(docRef);
+  const likes: { userID: string }[] = fullPollData.data().likes;
+  if (likes === undefined) return -1;
+  for (let i = 0; i < likes.length; i++) {
+    if (likes[i].userID === userID) {
+      likes.splice(i, 1);
+      await updateDoc(docRef, { likes });
+      return 0;
+    }
+  }
+  return 0;
+};
+
 export {
-  initUser,
   db,
   auth,
-  getUserData,
-  createPoll,
-  createPollDraft,
-  getPollDrafts,
+  initUser,
+  editPoll,
   getPolls,
   removePoll,
-  editPoll,
-  createQuestion,
-  getQuestions,
-  deleteQuestion,
-  editQuestion,
+  createPoll,
+  handleLike,
   publishPoll,
   getAllPolls,
-  getPublishedQuestions,
+  getUserData,
+  editQuestion,
+  getQuestions,
+  handleDislike,
+  getPollDrafts,
+  createQuestion,
+  deleteQuestion,
+  createPollDraft,
   removePollDraft,
   updatePollDraft,
-  createDraftQuestion,
+  publishPollDraft,
   getDraftQuestions,
+  submitPollResponse,
+  createDraftQuestion,
+  deleteDraftQuestion,
+  getLikedPollsForUser,
+  getPublishedQuestions,
+  updatePollDraftQuestion,
+  getPublishedPollsForUser,
+  getPublishedPollsForNonAdmin,
+  removeAnswersFromQuestionDraft,
 };
-export type { UserData, PollData, Answer, PollDraftInfo };
+export type {
+  Answer,
+  UserData,
+  PollData,
+  QuestionData,
+  PollDraftInfo,
+  ExtendedQuestion,
+  QuestionDataWithID,
+  PublishedPollWithID,
+};
