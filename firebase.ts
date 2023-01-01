@@ -33,6 +33,7 @@ import {
   QueryDocumentSnapshot,
   setDoc,
 } from "firebase/firestore";
+import { TIME_UNIT } from "./constants/localization";
 
 let moment = require("moment-timezone");
 
@@ -764,16 +765,16 @@ const parsePublishedPoll = (doc: any) => {
 
 const getPublishedPollsForUser = async (userID: string) => {
   const docs = (await getDocs(collection(db, `${userID}_published`))).docs;
-  const publishedDocIDs = docs.map((doc) => doc.data().publishedDocRef);
-
+  const docRefIDs = docs.map((document) => document.data().publishedDocRef);
   const publishedPolls: PublishedPollWithID[] = [];
-  for (const docID of publishedDocIDs) {
-    const publishedPoll = parsePublishedPoll(
-      await getDoc(doc(db, `published/${docID}`))
-    );
-    publishedPolls.push(publishedPoll);
+  for (const id of docRefIDs) {
+    const docRef = await getDoc(doc(db, `published/${id}`));
+    const { status } = docRef.data();
+    if (status !== "expired") {
+      const publishedPoll = parsePublishedPoll(docRef);
+      publishedPolls.push(publishedPoll);
+    }
   }
-
   return publishedPolls;
 };
 
@@ -799,8 +800,10 @@ const getPublishedPollsForNonAdmin = async () => {
   const docs = (await getDocs(collection(db, "published"))).docs;
   const polls: PublishedPollWithID[] = [];
   for (const doc of docs) {
-    const publishedPoll = parsePublishedPoll(doc);
-    polls.push(publishedPoll);
+    if (doc.data().status !== "expired") {
+      const publishedPoll = parsePublishedPoll(doc);
+      polls.push(publishedPoll);
+    }
   }
   return polls;
 };
@@ -844,6 +847,41 @@ const handleDislike = async (userID: string, pollID: string) => {
   return 0;
 };
 
+const extendPollDeadline = async (
+  pollData: PublishedPollWithID,
+  value: number,
+  unit: TIME_UNIT
+) => {
+  const { expirationTime } = pollData;
+  const newExpirationTime = moment(parseInt(expirationTime)).add(value, unit);
+  await updateDoc(doc(db, `published/${pollData.id}`), {
+    expirationTime: `${newExpirationTime}`,
+  });
+};
+
+const closePublishedPoll = async (pollID: string) => {
+  await updateDoc(doc(db, `published/${pollID}`), { status: "expired" });
+};
+
+const getPollStatus = async (pollID: string) => {
+  const { status } = (await getDoc(doc(db, `published/${pollID}`))).data();
+  return status;
+};
+
+const getAllUserPolls = async (userID: string) => {
+  const docs = (await getDocs(collection(db, `${userID}_published`))).docs;
+  const docRefIDs = docs.map((document) => document.data().publishedDocRef);
+
+  const publishedPolls: PublishedPollWithID[] = [];
+  for (const refID of docRefIDs) {
+    const docRef = await getDoc(doc(db, `published/${refID}`));
+    const publishedPoll = parsePublishedPoll(docRef);
+    publishedPolls.push(publishedPoll);
+  }
+
+  return publishedPolls;
+};
+
 export {
   db,
   auth,
@@ -859,15 +897,19 @@ export {
   editQuestion,
   getQuestions,
   handleDislike,
+  getPollStatus,
   getPollDrafts,
   createQuestion,
   deleteQuestion,
   createPollDraft,
+  getAllUserPolls,
   removePollDraft,
   updatePollDraft,
   publishPollDraft,
   getDraftQuestions,
   submitPollResponse,
+  closePublishedPoll,
+  extendPollDeadline,
   createDraftQuestion,
   deleteDraftQuestion,
   getLikedPollsForUser,

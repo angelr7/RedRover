@@ -13,6 +13,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SCREEN_WIDTH } from "../constants/dimensions";
 import { StatusBar } from "expo-status-bar";
 import LikedFeed from "./LikedFeed";
+import AllPolls from "./AllPolls";
 
 const BottomTabs = createBottomTabNavigator();
 
@@ -191,7 +192,7 @@ export default function UserHomeScreen({ navigation, params }) {
             />
             <BottomTabs.Screen
               name="bar-chart"
-              component={HomeFeed}
+              component={AllPolls}
               options={{ headerShown: false }}
               initialParams={{ userData }}
             />

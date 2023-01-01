@@ -9,7 +9,7 @@ import CreatePollModal from "../components/CreatePollModal";
 import PublishPollModal from "../components/PublishPollModal";
 import AddQuestionsModal2 from "../components/AddQuestionsModal2";
 import React, { useEffect, useRef, useState } from "react";
-import { DAYS_OF_WEEK } from "../constants/localization";
+import { DAYS_OF_WEEK, TIME_UNITS } from "../constants/localization";
 import {
   PollDraftInfo,
   getPollDrafts,
@@ -17,6 +17,9 @@ import {
   removePollDraft,
   getPublishedPollsForUser,
   PublishedPollWithID,
+  extendPollDeadline,
+  closePublishedPoll,
+  getPollStatus,
 } from "../firebase";
 import {
   Text,
@@ -27,7 +30,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
+import { SCREEN_HEIGHT } from "../constants/dimensions";
 
 interface UserData {
   admin: boolean;
@@ -118,6 +123,7 @@ interface PollDraftPreviewProps {
 interface PublishedPollPreviewProps {
   poll: PublishedPollWithID;
   last: boolean;
+  alt?: boolean;
 }
 interface DeleteDraftModalProps {
   userData: {
@@ -144,6 +150,7 @@ interface PublishedButtonContainerProps {
   openCircularRef: Animated.Value;
   interactionMenuOpen: boolean;
   openInteractionMenu: React.Dispatch<React.SetStateAction<boolean>>;
+  pollStatus: string;
 }
 
 const getRelativeTimestamp = (
@@ -896,12 +903,84 @@ const PollDraftContainer = ({
   );
 };
 
+const ViewResultsModal = ({
+  visible,
+  setVisible,
+  pollData,
+  animationState,
+  setAnimationState,
+}: {
+  visible: boolean;
+  animationState: boolean;
+  pollData: PublishedPollWithID;
+  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  setAnimationState: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  const animationProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // helps once its closed to restart animation back up
+    if (animationState) setVisible(true);
+
+    Animated.timing(animationProgress, {
+      delay: animationState ? 350 : 0,
+      toValue: animationState ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      if (!animationState) setVisible(false);
+    });
+  }, [animationState]);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <View
+        style={{
+          width: "100%",
+          height: "100%",
+          backgroundColor: "#853b30",
+          padding: 20,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => setAnimationState(false)}
+          style={{ padding: 10, left: -10, top: -10 }}
+        >
+          <FontAwesome5 name="times" style={{ fontSize: 25, color: "#FFF" }} />
+        </TouchableOpacity>
+        <Animated.Text
+          style={{
+            alignSelf: "center",
+            fontSize: 30,
+            fontFamily: "Lato_400Regular",
+            color: "#FFF",
+            top: -20,
+            transform: [{ scale: animationProgress }],
+          }}
+        >
+          {pollData.pollData.title}
+        </Animated.Text>
+      </View>
+    </Modal>
+  );
+};
+
 const PublishedButtonContainer = ({
   poll,
   openCircularRef,
   interactionMenuOpen,
   openInteractionMenu,
+  pollStatus,
 }: PublishedButtonContainerProps) => {
+  const [extendTimeModalVisible, setETModalVisible] = useState(false);
+  const [closePollModalVisible, setCloseModalVisible] = useState(false);
+  const [viewResultsModalVisible, setVRModalVisible] = useState(false);
+  const [vrAnimationState, setVRAnimationState] = useState(false);
+
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
   const buttonsDisabled = !interactionMenuOpen;
   return (
@@ -957,6 +1036,7 @@ const PublishedButtonContainer = ({
         }}
       >
         <TouchableOpacity
+          onPress={() => setVRAnimationState(true)}
           disabled={!interactionMenuOpen}
           style={styles.draftButtonContainer}
         >
@@ -970,40 +1050,403 @@ const PublishedButtonContainer = ({
             View Results
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          disabled={!interactionMenuOpen}
-          style={styles.draftButtonContainer}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontFamily: "Lato_400Regular",
-              fontSize: 12.5,
-            }}
+        {pollStatus !== "expired" && (
+          <TouchableOpacity
+            onPress={() => setETModalVisible(true)}
+            disabled={!interactionMenuOpen}
+            style={styles.draftButtonContainer}
           >
-            Extend Deadline
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          disabled={!interactionMenuOpen}
-          style={styles.draftButtonContainer}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontFamily: "Lato_400Regular",
-              fontSize: 12.5,
-            }}
+            <Text
+              style={{
+                color: "#FFF",
+                fontFamily: "Lato_400Regular",
+                fontSize: 12.5,
+              }}
+            >
+              Extend Deadline
+            </Text>
+          </TouchableOpacity>
+        )}
+        {pollStatus !== "expired" && (
+          <TouchableOpacity
+            disabled={!interactionMenuOpen}
+            style={styles.draftButtonContainer}
+            onPress={() => setCloseModalVisible(true)}
           >
-            Close Poll
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={{
+                color: "#FFF",
+                fontFamily: "Lato_400Regular",
+                fontSize: 12.5,
+              }}
+            >
+              Close Poll
+            </Text>
+          </TouchableOpacity>
+        )}
       </Animated.View>
+      <ExtendTimeModal
+        visible={extendTimeModalVisible}
+        setVisible={setETModalVisible}
+        pollData={poll}
+      />
+      <ClosePollModal
+        pollData={poll}
+        visible={closePollModalVisible}
+        setVisible={setCloseModalVisible}
+      />
+      <ViewResultsModal
+        pollData={poll}
+        visible={viewResultsModalVisible}
+        setVisible={setVRModalVisible}
+        animationState={vrAnimationState}
+        setAnimationState={setVRAnimationState}
+      />
     </Animated.View>
   );
 };
 
-const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
+const ClosePollModal = ({
+  visible,
+  pollData,
+  setVisible,
+}: {
+  visible: boolean;
+  pollData: PublishedPollWithID;
+  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <Pressable
+        onPress={() => setVisible(false)}
+        style={{
+          width: "100%",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <Pressable
+          style={{
+            width: 300,
+            height: 300,
+            padding: 20,
+            borderRadius: 10,
+            backgroundColor: "#FFF",
+          }}
+        >
+          <Text
+            style={{
+              alignSelf: "center",
+              fontFamily: "Lato_400Regular",
+              fontSize: 25,
+              color: "#853b30",
+            }}
+          >
+            Closing Published Poll!
+          </Text>
+          <View
+            style={{
+              flex: 1,
+              width: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "Lato_400Regular",
+                fontSize: 22.5,
+                color: "#853b30",
+              }}
+            >
+              <Text>Are you sure that you want to close this poll? </Text>
+              <Text style={{ fontFamily: "Lato_700Bold" }}>
+                This cannot be undone.
+              </Text>
+            </Text>
+          </View>
+          <Spacer width="100%" height={20} />
+          <View style={{ width: "65%", alignSelf: "center" }}>
+            <TouchableOpacity
+              onPress={async () => {
+                await closePublishedPoll(pollData.id);
+                setVisible(false);
+              }}
+              style={{
+                padding: 10,
+                backgroundColor: "#853b30",
+                borderRadius: 5,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Text>
+                <Text
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 15,
+                    color: "#FFF",
+                  }}
+                >
+                  Yes,{" "}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Lato_700Bold",
+                    fontSize: 15,
+                    color: "#FFF",
+                  }}
+                >
+                  Close My Poll
+                </Text>
+              </Text>
+            </TouchableOpacity>
+            <Spacer width="100%" height={20} />
+            <TouchableOpacity
+              onPress={() => setVisible(false)}
+              style={{
+                padding: 10,
+                backgroundColor: "#853b30",
+                borderRadius: 5,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Text>
+                <Text
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 15,
+                    color: "#FFF",
+                  }}
+                >
+                  No,{" "}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: "Lato_700Bold",
+                    fontSize: 15,
+                    color: "#FFF",
+                  }}
+                >
+                  Take Me Back
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+
+const ExtendTimeModal = ({
+  visible,
+  pollData,
+  setVisible,
+}: {
+  visible: boolean;
+  pollData: PublishedPollWithID;
+  setVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}) => {
+  const [unitID, setUnitID] = useState(0);
+  const [deadlineVal, setDeadlineVal] = useState("");
+  const keyboardDodgeRef = useRef(new Animated.Value(0)).current;
+  const textAnimationRef = useRef(new Animated.Value(0)).current;
+  const submitButtonOpacity = useRef(new Animated.Value(0)).current;
+  const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+  useEffect(() => {
+    let valid: boolean;
+    if (deadlineVal === "") valid = false;
+    else {
+      const parsed = parseInt(deadlineVal);
+      if (parsed === 0 || isNaN(parsed)) valid = false;
+      else valid = true;
+    }
+
+    Animated.timing(submitButtonOpacity, {
+      toValue: valid ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [deadlineVal]);
+
+  const getNextUnit = () => {
+    Animated.timing(textAnimationRef, {
+      toValue: -1,
+      duration: 125,
+      useNativeDriver: true,
+    }).start(() => {
+      setUnitID((unitID + 1) % TIME_UNITS.length);
+      textAnimationRef.setValue(1);
+      Animated.timing(textAnimationRef, {
+        toValue: 0,
+        duration: 125,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <Pressable
+        onPress={() => setVisible(false)}
+        style={{
+          width: "100%",
+          height: "100%",
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Animated.View
+          style={{
+            width: 300,
+            borderRadius: 5,
+            backgroundColor: "#FFF",
+            padding: 20,
+            transform: [
+              {
+                translateY: keyboardDodgeRef.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -SCREEN_HEIGHT / 7.5],
+                }),
+              },
+            ],
+          }}
+        >
+          <Pressable>
+            <Text
+              style={{
+                alignSelf: "center",
+                fontFamily: "Lato_400Regular",
+                fontSize: 25,
+                color: "#853b30",
+              }}
+            >
+              Extend Deadline
+            </Text>
+            <Spacer width="100%" height={20} />
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TextInput
+                keyboardType="number-pad"
+                selectionColor="#FFF"
+                value={deadlineVal}
+                onChangeText={(text) => setDeadlineVal(text)}
+                onFocus={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onBlur={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                style={{
+                  flex: 1,
+                  height: "100%",
+                  borderRadius: 5,
+                  backgroundColor: "#853b30",
+                  padding: 10,
+                  fontSize: 20,
+                  fontFamily: "Lato_400Regular",
+                  color: "#FFF",
+                  textAlign: "center",
+                }}
+              />
+              <Spacer width={20} height="100%" />
+              <TouchableOpacity
+                onPress={() => getNextUnit()}
+                style={{
+                  width: 100,
+                  height: "100%",
+                  borderRadius: 5,
+                  borderWidth: 2.5,
+                  borderColor: "#853b30",
+                }}
+              >
+                <View
+                  style={{
+                    width: "100%",
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Animated.Text
+                    style={{
+                      fontFamily: "Lato_400Regular",
+                      fontSize: 20,
+                      color: "#853b30",
+                      opacity: textAnimationRef.interpolate({
+                        inputRange: [-1, 0, 1],
+                        outputRange: [0, 1, 0],
+                        extrapolate: "clamp",
+                      }),
+                      transform: [
+                        {
+                          translateY: textAnimationRef.interpolate({
+                            inputRange: [-1, 0, 1],
+                            outputRange: [-40, 0, 40],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    {TIME_UNITS[unitID]}
+                  </Animated.Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+            <Spacer width="100%" height={20} />
+            <AnimatedTouchable
+              onPress={() => {
+                extendPollDeadline(
+                  pollData,
+                  parseInt(deadlineVal),
+                  TIME_UNITS[unitID]
+                );
+                setVisible(false);
+              }}
+              disabled={deadlineVal === ""}
+              style={{
+                alignSelf: "center",
+                padding: 10,
+                backgroundColor: "#853b30",
+                borderRadius: 5,
+                opacity: submitButtonOpacity,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 20,
+                  color: "#FFF",
+                }}
+              >
+                Submit
+              </Text>
+            </AnimatedTouchable>
+          </Pressable>
+        </Animated.View>
+      </Pressable>
+    </Modal>
+  );
+};
+
+const PublishedPollPreview = ({
+  poll,
+  last,
+  alt,
+}: PublishedPollPreviewProps) => {
   const { title, description, additionalInfo } = poll.pollData;
   const { expirationTime } = poll;
   const parsedTimestamp = moment(parseInt(expirationTime))
@@ -1013,6 +1456,7 @@ const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
 
   const [extraInfoOpen, openExtraInfo] = useState(false);
   const [interactionMenuOpen, openInteractionMenu] = useState(false);
+  const [pollStatus, setPollStatus] = useState("");
   const openCircularRef = useRef(new Animated.Value(0)).current;
   const slideAnimationRef = useRef(new Animated.Value(0)).current;
 
@@ -1023,9 +1467,15 @@ const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
     openCircularRef
   );
 
+  useEffect(() => {
+    getPollStatus(poll.id).then((status) =>
+      setPollStatus(status === undefined ? "" : status)
+    );
+  }, []);
+
   return (
     <>
-      <View style={styles.pollDraftMain}>
+      <View style={[styles.pollDraftMain, alt && { borderColor: "#853b30" }]}>
         <Pressable
           onPress={() => openExtraInfo(!extraInfoOpen)}
           onLongPress={() => {
@@ -1046,6 +1496,7 @@ const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
             openCircularRef={openCircularRef}
             interactionMenuOpen={interactionMenuOpen}
             openInteractionMenu={openInteractionMenu}
+            pollStatus={pollStatus}
           />
           <Text style={[styles.pollDraftTitle, { padding: 20 }]}>{title}</Text>
         </Pressable>
@@ -1060,11 +1511,15 @@ const PublishedPollPreview = ({ poll, last }: PublishedPollPreviewProps) => {
             },
           ]}
         >
-          <Text style={styles.pollDraftBottomText}>
-            Available Until: {parsedTimestamp[0]} {parsedTimestamp[1]}{" "}
-            {parsedTimestamp[2]} {parsedTimestamp[3]} at {parsedTimestamp[4]}{" "}
-            {parsedTimestamp[5]}
-          </Text>
+          {pollStatus === "expired" ? (
+            <Text style={styles.pollDraftBottomText}>Poll Expired!</Text>
+          ) : (
+            <Text style={styles.pollDraftBottomText}>
+              Available Until: {parsedTimestamp[0]} {parsedTimestamp[1]}{" "}
+              {parsedTimestamp[2]} {parsedTimestamp[3]} at {parsedTimestamp[4]}{" "}
+              {parsedTimestamp[5]}
+            </Text>
+          )}
         </View>
       </View>
       {!last && <LineSeparator />}
@@ -1126,6 +1581,9 @@ export default function CreatePolls2({ route, navigation }) {
             (a, b) => -(parseInt(a.dateCreated) - parseInt(b.dateCreated))
           )
         );
+      });
+      getPublishedPollsForUser(userData.id).then((publishedPolls) => {
+        setPublished(publishedPolls);
       });
     }
   }, [refresh]);
@@ -1257,6 +1715,8 @@ export default function CreatePolls2({ route, navigation }) {
     </ScrollView>
   );
 }
+
+export { PublishedPollPreview };
 
 const styles = StyleSheet.create({
   centerView: {

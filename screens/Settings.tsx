@@ -7,7 +7,9 @@ export default function Settings({ route, navigation }) {
   const { userData, triggerSignOut } = route.params;
 
   return (
-    <SafeAreaView style={{ width: "100%", height: "100%" }}>
+    <SafeAreaView
+      style={{ width: "100%", height: "100%", backgroundColor: "#FFF" }}
+    >
       <Text
         style={[
           styles.titleText,
