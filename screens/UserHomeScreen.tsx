@@ -165,7 +165,6 @@ export default function UserHomeScreen({ navigation, params }) {
         index: 0,
         routes: [{ name: "Auth" }],
       });
-      navigation.navigate("Auth");
     }
   }, [signoutTriggered]);
 

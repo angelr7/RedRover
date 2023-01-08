@@ -28,6 +28,7 @@ export default function AllPolls({ route }) {
         width: "100%",
         height: "100%",
         padding: 20,
+        paddingBottom: 0,
         backgroundColor: "#FFF",
       }}
     >
@@ -51,20 +52,7 @@ export default function AllPolls({ route }) {
           return (
             <>
               <PublishedPollPreview poll={item} last={last} alt={true} />
-              {!last && (
-                <>
-                  <Spacer width="100%" height={10} />
-                  <View
-                    style={{
-                      height: 1,
-                      width: "100%",
-                      backgroundColor: "#853b30",
-                      borderRadius: 2.5,
-                    }}
-                  />
-                  <Spacer width="100%" height={10} />
-                </>
-              )}
+              {last && <Spacer width="100%" height={40} />}
             </>
           );
         }}

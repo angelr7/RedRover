@@ -20,6 +20,7 @@ import {
   extendPollDeadline,
   closePublishedPoll,
   getPollStatus,
+  INTAKE_FILTERS,
 } from "../firebase";
 import {
   Text,
@@ -903,6 +904,423 @@ const PollDraftContainer = ({
   );
 };
 
+const ResultButton = ({
+  description,
+  iconName,
+  label,
+  selected,
+  setSelected,
+  index,
+}: {
+  index: number;
+  iconName: string;
+  label: string;
+  description: string;
+  selected: number;
+  setSelected: React.Dispatch<React.SetStateAction<number>>;
+}) => {
+  const animationRef = useRef(
+    new Animated.Value(selected === index ? 1 : 0)
+  ).current;
+  const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+  const AnimatedIcon = Animated.createAnimatedComponent(FontAwesome5);
+
+  useEffect(() => {
+    Animated.timing(animationRef, {
+      toValue: selected === index ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [selected]);
+
+  return (
+    <AnimatedTouchable
+      onPress={() => setSelected(index)}
+      style={{
+        width: "100%",
+        borderWidth: 2.5,
+        borderColor: "#FFF",
+        padding: 15,
+        borderRadius: 7.5,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: animationRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["#853b30", "#FFF"],
+        }),
+      }}
+    >
+      <AnimatedIcon
+        name={iconName}
+        style={{
+          fontSize: 30,
+          color: animationRef.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["#FFF", "#853b30"],
+          }),
+        }}
+      />
+      <Spacer width={15} height="100%" />
+      <Animated.View
+        style={{
+          width: 1,
+          height: "100%",
+          backgroundColor: animationRef.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["#FFF", "#853b30"],
+          }),
+        }}
+      />
+      <Spacer width={15} height="100%" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Animated.Text
+          style={{
+            fontFamily: "Lato_700Bold",
+            fontSize: 22.5,
+            color: animationRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+          }}
+        >
+          {label}
+        </Animated.Text>
+        <Spacer width="100%" height={5} />
+        <Animated.Text
+          style={{
+            fontFamily: "Lato_400Regular",
+            fontSize: 15,
+            color: animationRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+          }}
+        >
+          {description}
+        </Animated.Text>
+      </View>
+    </AnimatedTouchable>
+  );
+};
+
+const RBSpacer = () => (
+  <>
+    <Spacer width="100%" height={20} />
+    <View
+      style={{
+        width: "100%",
+        height: 1,
+        backgroundColor: "#FFFFFF50",
+      }}
+    />
+    <Spacer width="100%" height={20} />
+  </>
+);
+
+const Counter = ({
+  countTo,
+  label,
+  animationState,
+}: {
+  countTo: number;
+  label: string;
+  animationState: boolean;
+}) => {
+  const [count, setCount] = useState(0);
+  const countAnimationRef = useRef(new Animated.Value(0)).current;
+  const labelAnimationRef = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (animationState)
+      Animated.timing(countAnimationRef, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        let currCount = 0;
+        const id = setInterval(() => {
+          if (currCount === countTo) {
+            Animated.timing(labelAnimationRef, {
+              toValue: 1,
+              duration: 250,
+              useNativeDriver: false,
+            }).start(() => clearInterval(id));
+          } else {
+            setCount(currCount + 1);
+            currCount++;
+          }
+        }, 50);
+      });
+  }, [animationState]);
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        width: "27.5%",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Animated.Text
+        style={{
+          fontFamily: "Lato_400Regular",
+          fontSize: 30,
+          color: "#853b30",
+          transform: [{ scale: countAnimationRef }],
+        }}
+      >
+        {count}
+      </Animated.Text>
+      <Animated.Text
+        style={{
+          fontFamily: "Lato_400Regular",
+          color: "#853b30",
+          fontSize: labelAnimationRef.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 30],
+          }),
+          width: labelAnimationRef.interpolate({
+            inputRange: [0, 1],
+            outputRange: ["0%", "100%"],
+          }),
+        }}
+      >
+        {" "}
+        {countTo === 1 ? label.slice(0, -1) : label}
+      </Animated.Text>
+    </View>
+  );
+};
+
+const GlobalResultsScreen = ({
+  pollData,
+  animationState,
+}: {
+  pollData: PublishedPollWithID;
+  animationState: boolean;
+}) => {
+  const [filtered, filter] = useState(false);
+  const [filterIndex, setFilterIndex] = useState(0);
+  const filterRef = useRef(new Animated.Value(0)).current;
+  const buttonProgress = useRef(new Animated.Value(0)).current;
+  const switchRef = useRef(new Animated.Value(0)).current;
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+  const goNext = () => {
+    Animated.timing(switchRef, {
+      toValue: -1,
+      duration: 125,
+      useNativeDriver: true,
+    }).start(() => {
+      setFilterIndex((filterIndex + 1) % INTAKE_FILTERS.length);
+      switchRef.setValue(1);
+      Animated.timing(switchRef, {
+        toValue: 0,
+        duration: 125,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(buttonProgress, {
+        toValue: filtered ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(filterRef, {
+        toValue: filtered ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [filtered]);
+
+  return (
+    <View style={{ width: "100%", height: "100%", padding: 20 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          width: "100%",
+          alignItems: "center",
+        }}
+      >
+        <AnimatedPressable
+          onPress={() => {
+            Haptics.impactAsync();
+            filter(!filtered);
+          }}
+          style={{
+            padding: 5,
+            borderRadius: 5,
+            alignSelf: "flex-start",
+            backgroundColor: buttonProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+            borderWidth: 1.25,
+            borderColor: "#853b30",
+          }}
+        >
+          <Animated.Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 15,
+              color: buttonProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["#853b30", "#FFF"],
+              }),
+            }}
+          >
+            Filter
+          </Animated.Text>
+        </AnimatedPressable>
+        <Spacer width={10} height="100%" />
+        <Animated.View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flex: filterRef,
+            width: filterRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["0%", "100%"],
+            }),
+          }}
+        >
+          <Animated.Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Lato_400Regular",
+              color: "#853b30",
+              fontSize: 15,
+              // fontSize: filterRef.interpolate({
+              //   inputRange: [0, 1],
+              //   outputRange: [0, 15],
+              //   extrapolate: "clamp",
+              // }),
+            }}
+          >
+            Filtering By:{"  "}
+          </Animated.Text>
+          <AnimatedPressable
+            onPress={() => {
+              Haptics.impactAsync();
+              goNext();
+            }}
+            style={{
+              padding: 5,
+              flex: 1,
+              backgroundColor: "#FFF",
+              borderRadius: 5,
+              justifyContent: "center",
+              alignItems: "center",
+              borderWidth: 1.25,
+              borderColor: "#853b30",
+              opacity: filterRef.interpolate({
+                inputRange: [0.25, 1],
+                outputRange: [0, 1],
+                extrapolate: "clamp",
+              }),
+            }}
+          >
+            <Animated.Text
+              numberOfLines={1}
+              style={{
+                fontFamily: "Lato_400Regular",
+                fontSize: 15,
+                color: "#853b30",
+                opacity: switchRef.interpolate({
+                  inputRange: [-0.8, 0, 0.8],
+                  outputRange: [0, 1, 0],
+                }),
+                transform: [
+                  {
+                    translateY: switchRef.interpolate({
+                      inputRange: [-1, 0, 1],
+                      outputRange: [-30, 0, 30],
+                    }),
+                  },
+                ],
+              }}
+            >
+              {INTAKE_FILTERS[filterIndex]}
+            </Animated.Text>
+          </AnimatedPressable>
+        </Animated.View>
+      </View>
+      <View
+        style={{
+          width: "100%",
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Counter
+          countTo={pollData.questions[0].votes.length}
+          label={"Votes"}
+          animationState={animationState}
+        />
+        <Spacer width="100%" height={40} />
+        <Counter
+          countTo={pollData.likes.length}
+          label={"Likes"}
+          animationState={animationState}
+        />
+        <Spacer width="100%" height={40} />
+        <Text
+          style={{
+            fontFamily: "Lato_400Regular",
+            fontSize: 17.5,
+            color: "#853b30",
+          }}
+        >
+          More options coming soon!
+        </Text>
+        <Animated.View
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            backgroundColor: "#FFF",
+            opacity: filterRef,
+            zIndex: filterRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-1, 1],
+            }),
+          }}
+        />
+      </View>
+    </View>
+  );
+};
+
+const getResultScreen = (
+  mode: number,
+  pollData: PublishedPollWithID,
+  animationState: boolean
+) => {
+  switch (mode) {
+    case 0:
+      return (
+        <GlobalResultsScreen
+          pollData={pollData}
+          animationState={animationState}
+        />
+      );
+    default:
+      return <View />;
+  }
+};
+
 const ViewResultsModal = ({
   visible,
   setVisible,
@@ -916,18 +1334,21 @@ const ViewResultsModal = ({
   setVisible: React.Dispatch<React.SetStateAction<boolean>>;
   setAnimationState: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
+  const [mode, setMode] = useState(0);
   const animationProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // helps once its closed to restart animation back up
     if (animationState) setVisible(true);
 
-    Animated.timing(animationProgress, {
-      delay: animationState ? 350 : 0,
-      toValue: animationState ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(animationProgress, {
+        delay: animationState ? 350 : 0,
+        toValue: animationState ? 1 : 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       if (!animationState) setVisible(false);
     });
   }, [animationState]);
@@ -955,15 +1376,62 @@ const ViewResultsModal = ({
         <Animated.Text
           style={{
             alignSelf: "center",
-            fontSize: 30,
+            fontSize: 45,
             fontFamily: "Lato_400Regular",
             color: "#FFF",
-            top: -20,
+            top: -40,
             transform: [{ scale: animationProgress }],
           }}
         >
           {pollData.pollData.title}
         </Animated.Text>
+        <Animated.View
+          style={{
+            top: -25,
+            width: "100%",
+            flex: 1,
+            alignItems: "center",
+            opacity: animationProgress,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              height: 300,
+              backgroundColor: "#FFF",
+              borderRadius: 10,
+            }}
+          >
+            {getResultScreen(mode, pollData, animationState)}
+          </View>
+          <Spacer width="100%" height={20} />
+          <ScrollView style={{ width: "100%", flex: 1 }}>
+            <ResultButton
+              description="See aggregate information for your poll! Here you can find
+              your poll's total likes, total votes, and more!"
+              iconName="globe-americas"
+              label="Global Poll Information"
+              selected={mode}
+              setSelected={setMode}
+              index={0}
+            />
+            <RBSpacer />
+            {pollData.questions.map((question, index) => {
+              return (
+                <ResultButton
+                  key={index}
+                  iconName="poll"
+                  label={question.question}
+                  description={`See results for question #${index + 1}!`}
+                  selected={mode}
+                  setSelected={setMode}
+                  index={index + 1}
+                />
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+        <Spacer width="100%" height={40} />
       </View>
     </Modal>
   );

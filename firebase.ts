@@ -33,7 +33,25 @@ import {
   QueryDocumentSnapshot,
   setDoc,
 } from "firebase/firestore";
-import { TIME_UNIT } from "./constants/localization";
+import { COUNTRY, TIME_UNIT } from "./constants/localization";
+import {
+  AFFILIATION,
+  GENDER,
+  INCOME_LEVEL,
+  JOB,
+  LS,
+  PET,
+  convertToEL,
+  convertToGender,
+  convertToIL,
+  convertToJob,
+  convertToLS,
+  convertToPet,
+  convertToRace,
+  convertToReligion,
+  convertToString,
+  getPA,
+} from "./constants/demographics";
 
 let moment = require("moment-timezone");
 
@@ -511,10 +529,6 @@ const getPublishedQuestions = async (pollID: string) => {
   return docs.map((doc) => getQuestionFromData(doc));
 };
 
-// const getPublishedPolls = async (userID: string) => {
-//   const { docs } = await getDocs(collection(db, `published/${userID}`));
-// };
-
 const removePollDraft = async (userID: string, pollID: string) => {
   const docs = (
     await getDocs(collection(db, `${userID}_drafts/${pollID}/questions`))
@@ -764,15 +778,17 @@ const parsePublishedPoll = (doc: any) => {
 };
 
 const getPublishedPollsForUser = async (userID: string) => {
+  const currTime = moment();
   const docs = (await getDocs(collection(db, `${userID}_published`))).docs;
   const docRefIDs = docs.map((document) => document.data().publishedDocRef);
   const publishedPolls: PublishedPollWithID[] = [];
   for (const id of docRefIDs) {
     const docRef = await getDoc(doc(db, `published/${id}`));
-    const { status } = docRef.data();
+    const { status, expirationTime } = docRef.data();
     if (status !== "expired") {
-      const publishedPoll = parsePublishedPoll(docRef);
-      publishedPolls.push(publishedPoll);
+      if (currTime.diff(moment(parseInt(expirationTime)), "milliseconds") >= 0)
+        await updateDoc(doc(db, `published/${id}`), { status: "expired" });
+      else publishedPolls.push(parsePublishedPoll(docRef));
     }
   }
   return publishedPolls;
@@ -797,12 +813,21 @@ const getLikedPollsForUser = async (userID: string) => {
 };
 
 const getPublishedPollsForNonAdmin = async () => {
+  const currTime = moment();
   const docs = (await getDocs(collection(db, "published"))).docs;
   const polls: PublishedPollWithID[] = [];
-  for (const doc of docs) {
-    if (doc.data().status !== "expired") {
-      const publishedPoll = parsePublishedPoll(doc);
-      polls.push(publishedPoll);
+  for (const document of docs) {
+    const publishedPoll = parsePublishedPoll(document);
+    if (document.data().status !== "expired") {
+      const msDiff = currTime.diff(
+        moment(parseInt(publishedPoll.expirationTime)),
+        "milliseconds"
+      );
+      if (msDiff < 0) polls.push(publishedPoll);
+      else
+        await updateDoc(doc(db, `published/${publishedPoll.id}`), {
+          status: "expired",
+        });
     }
   }
   return polls;
@@ -882,6 +907,113 @@ const getAllUserPolls = async (userID: string) => {
   return publishedPolls;
 };
 
+// first name, last name, and birthday filters will be added later
+// for right now, they're unnecessary
+const INTAKE_FILTERS: DEMOGRAPHIC_FILTER[] = [
+  "School",
+  "Country",
+  "State",
+  "City",
+  "Gender",
+  "Race",
+  "Hispanic/Latino",
+  "Political Affiliation",
+  "LGBTQ",
+  "Income Level",
+  "Occupation",
+  "Religion",
+  "Pet",
+  "Living Situation",
+];
+type DEMOGRAPHIC_FILTER =
+  | "School"
+  | "Country"
+  | "State"
+  | "City"
+  | "Gender"
+  | "Race"
+  | "Hispanic/Latino"
+  | "Political Affiliation"
+  | "LGBTQ"
+  | "Income Level"
+  | "Occupation"
+  | "Religion"
+  | "Pet"
+  | "Living Situation";
+
+interface IntakeData {
+  firstName: string;
+  lastName: string;
+  school: string;
+  country: string;
+  state: string;
+  city: string;
+  birthday: string;
+  gender: GENDER;
+  race: string;
+  hispanicOrLatino: boolean;
+  politicalAffiliation: AFFILIATION;
+  lgbtq: boolean;
+  incomeLevel: INCOME_LEVEL;
+  occupation: JOB;
+  religion: string;
+  pet: PET;
+  livingSituation: LS;
+}
+const submitIntakeSurvey = async (userID: string, answers: string[]) => {
+  const [firstName, lastName] = answers[0].split(";");
+  const school = answers[2];
+
+  let country: string, state: string, city: string;
+  const splitted = answers[3].split(";");
+  if (splitted.length === 3) [country, state, city] = splitted;
+  else {
+    country = answers[3];
+    state = "N/A";
+    city = "N/A";
+  }
+
+  const birthday = answers[4];
+  const gender: GENDER = convertToGender(answers[5]);
+  const race = answers[6];
+  const hispanicOrLatino = answers[7].toLowerCase() === "yes";
+  const politicalAffiliation = getPA(answers[8]);
+  const lgbtq = answers[9].toLowerCase() === "yes";
+  const incomeLevel: INCOME_LEVEL = convertToIL(answers[10]);
+  const occupation: JOB = convertToJob(answers[11]);
+  const religion = convertToReligion(answers[12]);
+  const pet = convertToPet(answers[13]);
+  const livingSituation = convertToLS(answers[14]);
+
+  const intakeData: IntakeData = {
+    birthday,
+    city,
+    country,
+    firstName,
+    gender,
+    hispanicOrLatino,
+    incomeLevel,
+    lastName,
+    lgbtq,
+    livingSituation,
+    occupation,
+    pet,
+    politicalAffiliation,
+    race,
+    religion,
+    school,
+    state,
+  };
+
+  const q = query(collection(db, "users"), where("id", "==", userID), limit(1));
+  const docID = (await getDocs(q)).docs[0].id;
+
+  await updateDoc(doc(db, `users/${docID}`), {
+    intakeSurvey: true,
+    ...intakeData,
+  });
+};
+
 export {
   db,
   auth,
@@ -901,6 +1033,7 @@ export {
   getPollDrafts,
   createQuestion,
   deleteQuestion,
+  INTAKE_FILTERS,
   createPollDraft,
   getAllUserPolls,
   removePollDraft,
@@ -908,6 +1041,7 @@ export {
   publishPollDraft,
   getDraftQuestions,
   submitPollResponse,
+  submitIntakeSurvey,
   closePublishedPoll,
   extendPollDeadline,
   createDraftQuestion,

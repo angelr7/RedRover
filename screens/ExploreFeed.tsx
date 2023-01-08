@@ -30,6 +30,7 @@ import {
   TextInput,
   Keyboard,
 } from "react-native";
+import IntakeSurvey from "../components/IntakeSurvey";
 
 interface TopLogoBarProps {
   setPublishedPolls: React.Dispatch<
@@ -241,7 +242,7 @@ const MCBarChartBar = ({
           fontSize: 12.5,
           color: "#FFF",
           top: "50%",
-          left: -17.5,
+          left: -25,
           transform: [{ rotate: "-90deg" }],
           opacity: percentageOpacity,
         }}
@@ -2416,13 +2417,18 @@ const SubmitScreen = ({
           await submitPollResponse(pollData, userID, answers);
           closeScreen();
         }}
-        style={{ padding: 15, backgroundColor: "#FFF", borderRadius: 5 }}
+        style={{
+          padding: 10,
+          backgroundColor: "#FFF",
+          borderRadius: 5,
+          bottom: 20,
+        }}
       >
         <Text
           style={{
             fontFamily: "Lato_400Regular",
             color: "#507DBC",
-            fontSize: 15,
+            fontSize: 20,
           }}
         >
           Submit
@@ -2615,6 +2621,9 @@ const PublishedPollPreview = ({
   const [refresh, setRefresh] = useState<
     { direction: "left" | "right" } | undefined
   >(undefined);
+  const [closingTime, setClosingTime] = useState(
+    getClosingTime(poll.expirationTime)
+  );
   const opacity = useRef(new Animated.Value(1)).current;
   const engagementBarOpacity = useRef(new Animated.Value(1)).current;
 
@@ -2624,9 +2633,16 @@ const PublishedPollPreview = ({
     Haptics.impactAsync();
     setModalVisible(true);
   };
-  const closingTime = getClosingTime(poll.expirationTime);
   const screenViews = getScreenViews(poll, opacity, openPoll);
   const hasVoted = hasUserVoted(poll.questions[0].votes, userID);
+
+  useEffect(() => {
+    const unit = closingTime.split(" ").slice(-1)[0];
+    if (unit === "seconds" || unit === "second" || "minutes")
+      setTimeout(() => {
+        setClosingTime(getClosingTime(poll.expirationTime));
+      }, 1000);
+  }, [closingTime]);
 
   useEffect(() => {
     setTimeoutID(
@@ -2840,8 +2856,11 @@ export default function ExploreFeed({ route, navigation }) {
   const [publishedPolls, setPublishedPolls] =
     useState<PublishedPollWithID[]>(undefined);
   const [refreshing, triggerRefresh] = useState(false);
+  const [intakeSurvey, setIntakeSurvey] = useState(
+    route.params.userData.intakeSurvey
+  );
 
-  const { userData } = route.params;
+  const userData = route.params.userData;
 
   return (
     <SafeAreaView style={[styles.mainContainer]}>
@@ -2861,36 +2880,48 @@ export default function ExploreFeed({ route, navigation }) {
           paddingRight: 20,
         }}
       >
-        {publishedPolls === undefined ? (
-          <LoadingScreen color="#507DBC" />
-        ) : publishedPolls.length === 0 ? (
-          <Text
-            style={{
-              textAlign: "center",
-              fontFamily: "Lato_400Regular",
-              fontSize: 30,
-              color: "#507DBC",
-              lineHeight: 50,
-            }}
-          >
-            There are no available polls right now {":("}
-          </Text>
-        ) : (
-          <FlatList
-            data={publishedPolls}
-            style={{ width: "100%", flex: 1 }}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item, index }) => (
-              <PublishedPollPreview
-                key={item.id}
-                poll={item}
-                last={index === publishedPolls.length - 1}
+        {(() => {
+          if (publishedPolls === undefined)
+            return <LoadingScreen color="#507DBC" />;
+          else if (!intakeSurvey) {
+            return (
+              <IntakeSurvey
+                setIntakeSurvey={setIntakeSurvey}
                 userID={userData.id}
-                triggerRefresh={triggerRefresh}
               />
-            )}
-          />
-        )}
+            );
+          } else if (publishedPolls.length === 0)
+            return (
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 30,
+                  color: "#507DBC",
+                  lineHeight: 50,
+                }}
+              >
+                There are no available polls right now {":("}
+              </Text>
+            );
+          else
+            return (
+              <FlatList
+                data={publishedPolls}
+                style={{ width: "100%", flex: 1 }}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item, index }) => (
+                  <PublishedPollPreview
+                    key={item.id}
+                    poll={item}
+                    last={index === publishedPolls.length - 1}
+                    userID={userData.id}
+                    triggerRefresh={triggerRefresh}
+                  />
+                )}
+              />
+            );
+        })()}
       </View>
     </SafeAreaView>
   );
