@@ -1055,7 +1055,7 @@ const Counter = ({
             setCount(currCount + 1);
             currCount++;
           }
-        }, 50);
+        }, 5);
       });
   }, [animationState]);
 
@@ -1201,11 +1201,6 @@ const GlobalResultsScreen = ({
               fontFamily: "Lato_400Regular",
               color: "#853b30",
               fontSize: 15,
-              // fontSize: filterRef.interpolate({
-              //   inputRange: [0, 1],
-              //   outputRange: [0, 15],
-              //   extrapolate: "clamp",
-              // }),
             }}
           >
             Filtering By:{"  "}
