@@ -92,7 +92,7 @@ export default function InitialPrompt({
       style={[
         styles.mainContainer,
         styles.centerView,
-        { backgroundColor: userData.admin ? "#853b30" : "#afc9f9" },
+        { backgroundColor: userData.admin ? "#853b30" : "#507DBC" },
       ]}
     >
       <Animated.View
@@ -143,7 +143,7 @@ export default function InitialPrompt({
           <TextInput
             style={[
               styles.inputStyle,
-              { color: userData.admin ? "#853b30" : "#afc9f9" },
+              { color: userData.admin ? "#853b30" : "#507DBC" },
             ]}
             selectionColor={"rgb(133, 59, 48, 255)"}
             value={inputVal}
@@ -167,7 +167,7 @@ export default function InitialPrompt({
                 inputVal === ""
                   ? userData.admin
                     ? "#853b30"
-                    : "#afc9f9"
+                    : "#507DBC"
                   : "#FFF",
             },
           ]}
@@ -175,7 +175,7 @@ export default function InitialPrompt({
           <Text
             style={[
               styles.buttonText,
-              { color: userData.admin ? "#853b30" : "#afc9f9" },
+              { color: userData.admin ? "#853b30" : "#507DBC" },
             ]}
           >
             Next
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     width: "100%",
     height: "100%",
-    backgroundColor: "rgb(133, 59, 48)"
+    backgroundColor: "rgb(133, 59, 48)",
   },
   bigPromptText: {
     color: "#FFF",
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     fontFamily: "Lato_400Regular",
     fontSize: 20,
     textAlign: "center",
-    color: "rgb(133, 59, 48)"
+    color: "rgb(133, 59, 48)",
   },
   button: {
     width: 100,
@@ -222,6 +222,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: "Lato_400Regular",
     fontSize: 25,
-    color: "rgb(133, 59, 48)"
+    color: "rgb(133, 59, 48)",
   },
 });

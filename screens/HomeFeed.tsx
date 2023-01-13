@@ -762,7 +762,7 @@ const PollPreview = ({
           styles.mainPollPreviewContainer,
           styles.centerView,
           {
-            backgroundColor: isAdmin ? "#853b30" : "#afc9f9",
+            backgroundColor: isAdmin ? "#853b30" : "#507DBC",
           },
         ]}
       >
@@ -775,7 +775,7 @@ const PollPreview = ({
               alignItems: "center",
             }}
           >
-            <LoadingScreen color={isAdmin ? "#853b30" : "#afc9f9"} />
+            <LoadingScreen color={isAdmin ? "#853b30" : "#507DBC"} />
           </View>
         )}
         {!loading && (
@@ -833,10 +833,7 @@ export default function HomeFeed({ route, navigation }) {
   const { userData } = route.params;
   const isAdmin = userData.admin;
 
-  return (
-    <SafeAreaView style={[styles.mainContainer]}>
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={[styles.mainContainer]}></SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
