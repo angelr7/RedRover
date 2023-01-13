@@ -8,6 +8,7 @@ import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import CreatePollModal from "../components/CreatePollModal";
 import PublishPollModal from "../components/PublishPollModal";
 import AddQuestionsModal2 from "../components/AddQuestionsModal2";
+import percentRound from "percent-round";
 import React, { useEffect, useRef, useState } from "react";
 import { DAYS_OF_WEEK, TIME_UNITS } from "../constants/localization";
 import {
@@ -21,6 +22,12 @@ import {
   closePublishedPoll,
   getPollStatus,
   INTAKE_FILTERS,
+  getFilterData,
+  DEMOGRAPHIC_FILTER,
+  FilteredInfo,
+  FilteredQuestionInfo,
+  getFilterDataForQuestion,
+  ExtendedQuestion,
 } from "../firebase";
 import {
   Text,
@@ -32,6 +39,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  InteractionManager,
 } from "react-native";
 import { SCREEN_HEIGHT } from "../constants/dimensions";
 
@@ -1099,6 +1107,164 @@ const Counter = ({
   );
 };
 
+const DemographicSwitcher = ({
+  filterRef,
+  dataByFilter,
+  filterLabel,
+}: {
+  filterRef: Animated.Value;
+  dataByFilter: FilteredInfo;
+  filterLabel: string;
+}) => {
+  const [selected, setSelected] = useState<"votes" | "likes">("votes");
+  const voteRef = useRef(new Animated.Value(1)).current;
+  const likeRef = useRef(new Animated.Value(0)).current;
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+  const votePercentages = percentRound(
+    dataByFilter[filterLabel].map((item: any) => item.votes)
+  );
+  const likePercentages = percentRound(
+    dataByFilter[filterLabel].map((item: any) => item.likes)
+  );
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(voteRef, {
+        toValue: selected === "votes" ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(likeRef, {
+        toValue: selected === "likes" ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [selected]);
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#FFF",
+        opacity: filterRef,
+        zIndex: filterRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-1, 1],
+        }),
+      }}
+    >
+      <Spacer width="100%" height={20} />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+        }}
+      >
+        <AnimatedPressable
+          onPress={() => {
+            Haptics.impactAsync();
+            setSelected("votes");
+          }}
+          style={{
+            padding: 7.5,
+            borderRadius: 5,
+            borderWidth: 1.25,
+            borderColor: "#853b30",
+            backgroundColor: voteRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+          }}
+        >
+          <Animated.Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 15,
+              color: voteRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["#853b30", "#FFF"],
+              }),
+            }}
+          >
+            Votes
+          </Animated.Text>
+        </AnimatedPressable>
+        <Spacer height={"100%"} width={40} />
+        <AnimatedPressable
+          onPress={() => {
+            Haptics.impactAsync();
+            setSelected("likes");
+          }}
+          style={{
+            padding: 7.5,
+            borderRadius: 5,
+            borderWidth: 1.25,
+            borderColor: "#853b30",
+            backgroundColor: likeRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+          }}
+        >
+          <Animated.Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 15,
+              color: likeRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["#853b30", "#FFF"],
+              }),
+            }}
+          >
+            Likes
+          </Animated.Text>
+        </AnimatedPressable>
+      </View>
+      <Spacer width="100%" height={20} />
+      <View style={{ width: "100%", flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ alignItems: "center" }}
+          style={{
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {dataByFilter[filterLabel]
+            .sort((a: any, b: any) => b.votes - a.votes)
+            .map((item: any, index: number) => {
+              let label = item[filterLabel];
+              if (filterLabel === "hispanicOrLatino")
+                label = label ? "Hispanic/Latino" : "Not Hispanic/Latino";
+              if (filterLabel === "lgbtq")
+                label = label ? "LGBTQ" : "Not LGBTQ";
+              return (
+                <Text
+                  key={item}
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    fontSize: 20,
+                    color: "#853b30",
+                  }}
+                >
+                  {label}:{" "}
+                  {selected === "votes"
+                    ? `${votePercentages[index]}%`
+                    : `${likePercentages[index]}%`}
+                </Text>
+              );
+            })}
+        </ScrollView>
+      </View>
+    </Animated.View>
+  );
+};
+
 const GlobalResultsScreen = ({
   pollData,
   animationState,
@@ -1108,10 +1274,36 @@ const GlobalResultsScreen = ({
 }) => {
   const [filtered, filter] = useState(false);
   const [filterIndex, setFilterIndex] = useState(0);
+  const [dataByFilter, setDataByFilter] = useState<FilteredInfo>();
   const filterRef = useRef(new Animated.Value(0)).current;
   const buttonProgress = useRef(new Animated.Value(0)).current;
   const switchRef = useRef(new Animated.Value(0)).current;
   const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+  const currentFilter: DEMOGRAPHIC_FILTER =
+    dataByFilter === undefined ? undefined : INTAKE_FILTERS[filterIndex];
+  let filterLabel: string;
+  if (currentFilter !== undefined) {
+    switch (currentFilter) {
+      case "Hispanic/Latino":
+        filterLabel = "hispanicOrLatino";
+        break;
+      case "Political Affiliation":
+        filterLabel = "politicalAffiliation";
+        break;
+      case "LGBTQ":
+        filterLabel = "lgbtq";
+        break;
+      case "Income Level":
+        filterLabel = "incomeLevel";
+        break;
+      case "Living Situation":
+        filterLabel = "livingSituation";
+        break;
+      default:
+        filterLabel = currentFilter.toLowerCase();
+    }
+  }
 
   const goNext = () => {
     Animated.timing(switchRef, {
@@ -1143,6 +1335,14 @@ const GlobalResultsScreen = ({
       }),
     ]).start();
   }, [filtered]);
+
+  useEffect(() => {
+    getFilterData(pollData.questions[0].votes, pollData.likes).then(
+      (filterData) => setDataByFilter(filterData)
+    );
+  }, []);
+
+  if (dataByFilter === undefined) return <LoadingScreen color="#853b30" />;
 
   return (
     <View style={{ width: "100%", height: "100%", padding: 20 }}>
@@ -1246,7 +1446,7 @@ const GlobalResultsScreen = ({
                 ],
               }}
             >
-              {INTAKE_FILTERS[filterIndex]}
+              {currentFilter}
             </Animated.Text>
           </AnimatedPressable>
         </Animated.View>
@@ -1280,9 +1480,688 @@ const GlobalResultsScreen = ({
         >
           More options coming soon!
         </Text>
+        <DemographicSwitcher {...{ dataByFilter, filterLabel, filterRef }} />
+      </View>
+    </View>
+  );
+};
+
+const getMCAnswerTotals = (
+  votes: { answer: string; userID: string }[],
+  answers: string[]
+) => {
+  const counter: number[] = [];
+  for (const answer of answers) counter.push(0);
+
+  for (const vote of votes) counter[answers.indexOf(vote.answer)]++;
+  return counter;
+};
+
+const MCAnswerTotal = ({
+  answer,
+  percentage,
+  last,
+}: {
+  answer: string;
+  percentage: number;
+  last: boolean;
+}) => {
+  return (
+    <>
+      <Text
+        style={{
+          fontFamily: "Lato_400Regular",
+          fontSize: 20,
+          color: "#853b30",
+        }}
+      >
+        {answer}: {percentage}%
+      </Text>
+      {!last && (
+        <>
+          <Spacer width="100%" height={10} />
+          <View
+            style={{
+              height: 1,
+              width: "100%",
+              backgroundColor: "#853b3050",
+            }}
+          />
+          <Spacer width="100%" height={10} />
+        </>
+      )}
+    </>
+  );
+};
+
+const FreeResponseGlobal = ({
+  pollData,
+  questionIndex,
+}: {
+  pollData: PublishedPollWithID;
+  questionIndex: number;
+}) => {
+  const [currWordCount, setCurrWordCount] = useState(0);
+  const [currLetterCount, setCurrLetterCount] = useState(0);
+  const [mode, setMode] = useState<"stats" | "answers">("stats");
+  const statsRef = useRef(new Animated.Value(1)).current;
+  const answersRef = useRef(new Animated.Value(0)).current;
+  const labelSlideRef = useRef(new Animated.Value(0)).current;
+  const { votes } = pollData.questions[questionIndex];
+  let averageWordCount = 0;
+  let averageLetterCount = 0;
+  if (votes.length > 0) {
+    for (const vote of votes) {
+      averageLetterCount += vote.answer.length;
+      averageWordCount += vote.answer
+        .split(/\s+/)
+        .filter((item) => item !== "").length;
+    }
+
+    averageWordCount = Math.round((averageWordCount * 10) / votes.length) / 10;
+    averageLetterCount =
+      Math.round((averageLetterCount * 10) / votes.length) / 10;
+  }
+
+  useEffect(() => {
+    Animated.timing(labelSlideRef, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: false,
+    }).start(() => {
+      let wc = 0;
+      let lc = 0;
+      const id1 = setInterval(() => {
+        if (wc === averageWordCount) {
+          clearInterval(id1);
+          return;
+        }
+        setCurrWordCount(wc + 1);
+        wc++;
+      }, 5);
+      const id2 = setInterval(() => {
+        if (lc === averageLetterCount) {
+          clearInterval(id2);
+          return;
+        }
+        setCurrLetterCount(lc + 1);
+        lc++;
+      }, 5);
+    });
+  }, []);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(statsRef, {
+        toValue: mode === "stats" ? 1 : 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(answersRef, {
+        toValue: mode === "answers" ? 1 : 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [mode]);
+
+  return (
+    <>
+      <Spacer width="100%" height={10} />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync();
+            setMode("stats");
+          }}
+          style={{ alignItems: "center" }}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 20,
+              color: "#853b30",
+            }}
+          >
+            Stats
+          </Text>
+          <Spacer width="100%" height={2.5} />
+          <Animated.View
+            style={{
+              height: 1,
+              backgroundColor: "#853b30",
+              width: "125%",
+              transform: [{ scaleX: statsRef }],
+            }}
+          />
+        </Pressable>
+        <Spacer style={{ width: 40, height: "100%" }} />
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync();
+            setMode("answers");
+          }}
+          style={{ alignItems: "center" }}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 20,
+              color: "#853b30",
+            }}
+          >
+            Answers
+          </Text>
+          <Spacer width="100%" height={2.5} />
+          <Animated.View
+            style={{
+              height: 1,
+              backgroundColor: "#853b30",
+              width: "125%",
+              transform: [{ scaleX: answersRef }],
+            }}
+          />
+        </Pressable>
+      </View>
+      {mode === "stats" ? (
+        <Animated.View
+          style={{
+            flex: 1,
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+            opacity: statsRef,
+          }}
+        >
+          <Animated.Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Lato_700Bold",
+              color: "#853b30",
+              left: 0,
+              fontSize: 22.5,
+              width: labelSlideRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            }}
+          >
+            Average Word Count: {currWordCount}
+          </Animated.Text>
+          <Spacer width={"100%"} height={20} />
+          <Animated.Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Lato_700Bold",
+              color: "#853b30",
+              left: 0,
+              fontSize: 25,
+              width: labelSlideRef.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            }}
+          >
+            Average Letter Count: {currLetterCount}
+          </Animated.Text>
+        </Animated.View>
+      ) : votes.length === 0 ? (
+        <Animated.View
+          style={{
+            flex: 1,
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+            opacity: answersRef,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 25,
+              color: "#853b30",
+              textAlign: "center",
+            }}
+          >
+            Uh oh! There's no data for this question {":("}
+          </Text>
+        </Animated.View>
+      ) : (
+        <Animated.ScrollView
+          contentContainerStyle={[
+            {
+              alignItems: "center",
+            },
+          ]}
+          style={{
+            flex: 1,
+            width: "100%",
+            opacity: answersRef,
+          }}
+        >
+          {votes.map((vote, index) => (
+            <>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 20,
+                  color: "#853b30",
+                  textAlign: "center",
+                }}
+              >
+                {vote.answer}
+              </Text>
+              {index !== votes.length - 1 && (
+                <>
+                  <Spacer width="100%" height={10} />
+                  <View
+                    style={{
+                      width: "100%",
+                      height: 1,
+                      backgroundColor: "#853b30",
+                    }}
+                  />
+                  <Spacer width="100%" height={10} />
+                </>
+              )}
+            </>
+          ))}
+        </Animated.ScrollView>
+      )}
+    </>
+  );
+};
+
+const SliderResponseGlobal = ({
+  pollData,
+  questionIndex,
+  animationState,
+}: {
+  pollData: PublishedPollWithID;
+  questionIndex: number;
+  animationState: boolean;
+}) => {
+  const [currCount, setCurrCount] = useState(0);
+  const avgRef = useRef(new Animated.Value(0)).current;
+  const { votes } = pollData.questions[questionIndex];
+  let average = 0;
+  if (votes.length > 0) {
+    for (const vote of votes) {
+      average += parseInt(
+        vote.answer[0] === "$" ? vote.answer.slice(1) : vote.answer
+      );
+    }
+    average /= votes.length;
+  }
+
+  useEffect(() => {
+    let current = 0;
+    const id = setInterval(() => {
+      if (current === average) {
+        Animated.timing(avgRef, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: false,
+        }).start();
+        clearInterval(id);
+        return;
+      }
+      setCurrCount(current + 1);
+      current++;
+    }, 5);
+  }, []);
+
+  return (
+    <View
+      style={{
+        width: "100%",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: "Lato_400Regular",
+          fontSize: 25,
+          color: "#853b30",
+        }}
+      >
+        {currCount}
+      </Text>
+      <Animated.View>
+        <Spacer width="100%" height={5} />
+        <Animated.Text
+          numberOfLines={1}
+          style={{
+            fontFamily: "Lato_400Regular",
+            fontSize: 25,
+            color: "#853b30",
+            alignSelf: "center",
+            width: avgRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 157.5],
+            }),
+          }}
+        >
+          Average Value
+        </Animated.Text>
+      </Animated.View>
+    </View>
+  );
+};
+
+const GlobalQuestionData = ({
+  pollData,
+  questionIndex,
+  animationState,
+}: {
+  pollData: PublishedPollWithID;
+  questionIndex: number;
+  animationState: boolean;
+}) => {
+  return (
+    <View style={{ width: "100%", flex: 1 }}>
+      {(() => {
+        switch (pollData.questions[questionIndex].category) {
+          case "Multiple Choice":
+            const answerTotals = getMCAnswerTotals(
+              pollData.questions[questionIndex].votes,
+              pollData.questions[questionIndex].answers
+            );
+            const answerPercentages = percentRound(answerTotals);
+
+            return (
+              <>
+                <Spacer width="100%" height={10} />
+                <Text
+                  style={{
+                    alignSelf: "center",
+                    fontFamily: "Lato_700Bold",
+                    fontSize: 20,
+                    color: "#853b30",
+                  }}
+                >
+                  Answer Totals
+                </Text>
+                <Spacer width="100%" height={10} />
+                <ScrollView
+                  contentContainerStyle={{ alignItems: "center" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  {pollData.questions[questionIndex].answers.map(
+                    (answer: string, index: number, array: string[]) => (
+                      <MCAnswerTotal
+                        key={index}
+                        answer={answer}
+                        percentage={answerPercentages[index]}
+                        last={index === array.length - 1}
+                      />
+                    )
+                  )}
+                </ScrollView>
+              </>
+            );
+          case "Free Response":
+            return <FreeResponseGlobal {...{ pollData, questionIndex }} />;
+          case "Range (Slider)":
+            return (
+              <SliderResponseGlobal
+                {...{ pollData, questionIndex, animationState }}
+              />
+            );
+          default:
+            return <View />;
+        }
+      })()}
+    </View>
+  );
+};
+
+const MCDemographicComponent = ({
+  filterRef,
+  filterLabel,
+  dataByFilter,
+}: {
+  filterRef: Animated.Value;
+  filterLabel: string;
+  dataByFilter: FilteredQuestionInfo;
+}) => {
+  const answerCounts: any[] = [];
+  for (const item of dataByFilter[filterLabel]) {
+    const toPush: any = {};
+    toPush[filterLabel] = item[filterLabel];
+
+    for (const answer of item.answerTallies) {
+      if (!(answer in toPush)) toPush[answer] = 1;
+      else toPush[answer]++;
+    }
+
+    answerCounts.push(toPush);
+  }
+
+  for (const item of answerCounts) {
+    const countArr: number[] = [];
+    for (const key in item) if (key !== filterLabel) countArr.push(item[key]);
+    const percentages = percentRound(countArr, 1);
+
+    for (const key in item) {
+      if (key !== filterLabel) {
+        const foundIndex = countArr.indexOf(item[key]);
+        item[key] = percentages[foundIndex];
+      }
+    }
+  }
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#FFF",
+        opacity: filterRef,
+        zIndex: filterRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-1, 1],
+        }),
+      }}
+    >
+      <Spacer width="100%" height={10} />
+      <ScrollView style={{ width: "100%", flex: 1 }}>
+        {answerCounts.map((item, index) => {
+          const answers: string[] = [];
+          for (const key in item) if (key !== filterLabel) answers.push(key);
+
+          let displayedLabel = item[filterLabel];
+          switch (filterLabel) {
+            case "hispanicOrLatino":
+              displayedLabel = displayedLabel
+                ? "Hispanic/Latino"
+                : "Not Hispanic/Latino";
+              break;
+            case "lgbtq":
+              displayedLabel = displayedLabel ? "LGBTQ" : "Not LGBTQ";
+          }
+
+          return (
+            <View key={index}>
+              <Text
+                style={{
+                  fontFamily: "Lato_700Bold",
+                  fontSize: 20,
+                  color: "#853b30",
+                }}
+              >
+                {displayedLabel}
+              </Text>
+              {answers.map((answer, index) => (
+                <View key={index} style={{ width: "100%" }}>
+                  <Spacer width="100%" height={5} />
+                  <Text
+                    style={{
+                      fontFamily: "Lato_400Regular_Italic",
+                      color: "#853b30",
+                      fontSize: 15,
+                    }}
+                  >
+                    {"\u2022\t"}
+                    {answer}: {item[answer]}%
+                  </Text>
+                </View>
+              ))}
+              {index !== answerCounts.length - 1 && (
+                <>
+                  <Spacer width="100%" height={10} />
+                  <View
+                    style={{
+                      width: "100%",
+                      height: 1,
+                      backgroundColor: "#853b3050",
+                    }}
+                  />
+                  <Spacer width="100%" height={10} />
+                </>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </Animated.View>
+  );
+};
+
+const SliderDemographicComponent = ({
+  dataByFilter,
+  filterLabel,
+  filterRef,
+}: {
+  filterRef: Animated.Value;
+  filterLabel: string;
+  dataByFilter: FilteredQuestionInfo;
+}) => {
+  const data = dataByFilter[filterLabel];
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#FFF",
+        opacity: filterRef,
+        zIndex: filterRef.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-1, 1],
+        }),
+      }}
+    >
+      {data.length > 0 ? (
+        <>
+          <Spacer width="100%" height={10} />
+          <ScrollView style={{ width: "100%", flex: 1 }}>
+            {data.map((item: any, index: number) => {
+              let average = 0;
+              for (const answer of item.answerTallies) {
+                let num = parseInt(
+                  answer[0] === "$" ? answer.slice(1) : answer
+                );
+                average += num;
+              }
+              average /= item.answerTallies.length;
+
+              let displayedLabel = item[filterLabel];
+              switch (filterLabel) {
+                case "hispanicOrLatino":
+                  displayedLabel = displayedLabel
+                    ? "Hispanic/Latino"
+                    : "Not Hispanic/Latino";
+                  break;
+                case "lgbtq":
+                  displayedLabel = displayedLabel ? "LGBTQ" : "Not LGBTQ";
+              }
+
+              return (
+                <View key={index} style={{ width: "100%" }}>
+                  <Spacer width="100%" height={10} />
+                  <Text
+                    style={{
+                      fontFamily: "Lato_400Regular_Italic",
+                      color: "#853b30",
+                      fontSize: 15,
+                    }}
+                  >
+                    {"\u2022\t"}
+                    {displayedLabel}: {average}
+                  </Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : (
+        <View
+          style={{
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 25,
+              color: "#853b30",
+              textAlign: "center",
+            }}
+          >
+            Uh oh! There's no data for this question {":("}
+          </Text>
+        </View>
+      )}
+    </Animated.View>
+  );
+};
+
+const DemographicSwitcherForQuestion = ({
+  filterLabel,
+  filterRef,
+  dataByFilter,
+  category,
+}: {
+  filterLabel: string;
+  filterRef: Animated.Value;
+  dataByFilter: FilteredQuestionInfo;
+  category: ExtendedQuestion["category"];
+}) => {
+  switch (category) {
+    case "Multiple Choice":
+      return (
+        <MCDemographicComponent {...{ dataByFilter, filterLabel, filterRef }} />
+      );
+    case "Range (Slider)":
+      return (
+        <SliderDemographicComponent
+          {...{ dataByFilter, filterLabel, filterRef }}
+        />
+      );
+    default:
+      return (
         <Animated.View
           style={{
             position: "absolute",
+            justifyContent: "center",
+            alignItems: "center",
             width: "100%",
             height: "100%",
             backgroundColor: "#FFF",
@@ -1292,9 +2171,262 @@ const GlobalResultsScreen = ({
               outputRange: [-1, 1],
             }),
           }}
+        >
+          <Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 30,
+              color: "#853b30",
+            }}
+          >
+            Coming soon!
+          </Text>
+        </Animated.View>
+      );
+  }
+};
+
+const QuestionResults = ({
+  pollData,
+  questionIndex,
+  animationState,
+}: {
+  pollData: PublishedPollWithID;
+  questionIndex: number;
+  animationState: boolean;
+}) => {
+  const [filtered, filter] = useState(false);
+  const [filterIndex, setFilterIndex] = useState(0);
+  const [dataByFilter, setDataByFilter] = useState<FilteredQuestionInfo>();
+  const opacity = useRef(new Animated.Value(0)).current;
+  const filterRef = useRef(new Animated.Value(0)).current;
+  const switchRef = useRef(new Animated.Value(0)).current;
+  const buttonProgress = useRef(new Animated.Value(0)).current;
+  const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+  const currentFilter: DEMOGRAPHIC_FILTER = INTAKE_FILTERS[filterIndex];
+  let filterLabel: string;
+  if (currentFilter !== undefined) {
+    switch (currentFilter) {
+      case "Hispanic/Latino":
+        filterLabel = "hispanicOrLatino";
+        break;
+      case "Political Affiliation":
+        filterLabel = "politicalAffiliation";
+        break;
+      case "LGBTQ":
+        filterLabel = "lgbtq";
+        break;
+      case "Income Level":
+        filterLabel = "incomeLevel";
+        break;
+      case "Living Situation":
+        filterLabel = "livingSituation";
+        break;
+      default:
+        filterLabel = currentFilter.toLowerCase();
+    }
+  }
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const goNext = () => {
+    Animated.timing(switchRef, {
+      toValue: -1,
+      duration: 125,
+      useNativeDriver: true,
+    }).start(() => {
+      setFilterIndex((filterIndex + 1) % INTAKE_FILTERS.length);
+      switchRef.setValue(1);
+      Animated.timing(switchRef, {
+        toValue: 0,
+        duration: 125,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(buttonProgress, {
+        toValue: filtered ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(filterRef, {
+        toValue: filtered ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [filtered]);
+
+  useEffect(() => {
+    getFilterDataForQuestion(pollData.questions[questionIndex]).then((data) =>
+      setDataByFilter(data)
+    );
+  }, []);
+
+  if (dataByFilter === undefined) return <LoadingScreen color="#853b30" />;
+
+  return (
+    <Animated.View
+      style={{
+        width: "100%",
+        height: "100%",
+        padding: 20,
+        opacity,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          width: "100%",
+          alignItems: "center",
+        }}
+      >
+        <AnimatedPressable
+          onPress={() => {
+            Haptics.impactAsync();
+            filter(!filtered);
+          }}
+          style={{
+            padding: 5,
+            borderRadius: 5,
+            alignSelf: "flex-start",
+            backgroundColor: buttonProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["#FFF", "#853b30"],
+            }),
+            borderWidth: 1.25,
+            borderColor: "#853b30",
+          }}
+        >
+          <Animated.Text
+            style={{
+              fontFamily: "Lato_400Regular",
+              fontSize: 15,
+              color: buttonProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["#853b30", "#FFF"],
+              }),
+            }}
+          >
+            Filter
+          </Animated.Text>
+        </AnimatedPressable>
+        <Spacer width={10} height="100%" />
+        <Animated.View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flex: filterRef,
+            width: filterRef.interpolate({
+              inputRange: [0, 1],
+              outputRange: ["0%", "100%"],
+            }),
+          }}
+        >
+          <Animated.Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Lato_400Regular",
+              color: "#853b30",
+              fontSize: 15,
+            }}
+          >
+            Filtering By:{"  "}
+          </Animated.Text>
+          <AnimatedPressable
+            onPress={() => {
+              Haptics.impactAsync();
+              goNext();
+            }}
+            style={{
+              padding: 5,
+              flex: 1,
+              backgroundColor: "#FFF",
+              borderRadius: 5,
+              justifyContent: "center",
+              alignItems: "center",
+              borderWidth: 1.25,
+              borderColor: "#853b30",
+              opacity: filterRef.interpolate({
+                inputRange: [0.25, 1],
+                outputRange: [0, 1],
+                extrapolate: "clamp",
+              }),
+            }}
+          >
+            <Animated.Text
+              numberOfLines={1}
+              style={{
+                fontFamily: "Lato_400Regular",
+                fontSize: 15,
+                color: "#853b30",
+                opacity: switchRef.interpolate({
+                  inputRange: [-0.8, 0, 0.8],
+                  outputRange: [0, 1, 0],
+                }),
+                transform: [
+                  {
+                    translateY: switchRef.interpolate({
+                      inputRange: [-1, 0, 1],
+                      outputRange: [-30, 0, 30],
+                    }),
+                  },
+                ],
+              }}
+            >
+              {currentFilter}
+            </Animated.Text>
+          </AnimatedPressable>
+        </Animated.View>
+      </View>
+      <View
+        style={{
+          width: "100%",
+          flex: 1,
+          alignItems: "center",
+        }}
+      >
+        <Animated.Text
+          style={{
+            fontFamily: "Lato_400Regular",
+            color: "#853b30",
+            fontSize: 25,
+            position: "absolute",
+            top: -30,
+            opacity: filterRef.interpolate({
+              inputRange: [0, 0.25],
+              outputRange: [1, 0],
+              extrapolate: "clamp",
+            }),
+          }}
+        >
+          {pollData.questions[questionIndex].question}
+        </Animated.Text>
+        <GlobalQuestionData
+          pollData={pollData}
+          questionIndex={questionIndex}
+          animationState={animationState}
+        />
+        <DemographicSwitcherForQuestion
+          {...{
+            filterLabel,
+            filterRef,
+            dataByFilter,
+            category: pollData.questions[questionIndex].category,
+          }}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -1308,6 +2440,14 @@ const getResultScreen = (
       return (
         <GlobalResultsScreen
           pollData={pollData}
+          animationState={animationState}
+        />
+      );
+    case 1:
+      return (
+        <QuestionResults
+          pollData={pollData}
+          questionIndex={mode - 1}
           animationState={animationState}
         />
       );
@@ -1330,6 +2470,7 @@ const ViewResultsModal = ({
   setAnimationState: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
   const [mode, setMode] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const animationProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1426,7 +2567,6 @@ const ViewResultsModal = ({
             })}
           </ScrollView>
         </Animated.View>
-        <Spacer width="100%" height={40} />
       </View>
     </Modal>
   );
@@ -2151,7 +3291,6 @@ export default function CreatePolls2({ route, navigation }) {
           setPublishingPollActive={setPublishingPollActive}
         />
       </View>
-      <Spacer height={10} width="100%" />
       <View style={[styles.centerView, { flex: 1 }]}>
         <TouchableOpacity
           onPress={() => setCreatePollActive(true)}

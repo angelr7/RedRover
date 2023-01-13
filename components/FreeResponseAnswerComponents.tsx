@@ -1,4 +1,5 @@
-import Spacer from "./Spacer";
+import Spacer, { AnimatedSpacer } from "./Spacer";
+import * as Haptics from "expo-haptics";
 import Slider from "@react-native-community/slider";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -7,6 +8,9 @@ import {
   Text,
   TouchableOpacity,
   Animated,
+  Pressable,
+  Modal,
+  TextInput,
 } from "react-native";
 import {
   PollDraftInfo,
@@ -14,6 +18,7 @@ import {
   createDraftQuestion,
   updatePollDraftQuestion,
 } from "../firebase";
+import { SCREEN_HEIGHT } from "../constants/dimensions";
 
 interface Category {
   name: "Multiple Choice" | "Free Response" | "Ranking" | "Range (Slider)";
@@ -112,6 +117,10 @@ export default function FreeResponseAnswers({
 }: FreeResponseAnswersProps) {
   const [valid, setValid] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [wcModalVisible, setWCModalVisible] = useState(false);
+  const [lcModalVisible, setLCModalVisible] = useState(false);
+  const [wcVal, setWCVal] = useState("");
+  const [lcVal, setLCVal] = useState("");
   const [wordCount, setWordCount] = useState(
     editQuestion !== undefined ? editQuestion.wordCount : 0
   );
@@ -121,9 +130,13 @@ export default function FreeResponseAnswers({
   const [multiline, setMultiline] = useState<boolean | undefined>(
     editQuestion !== undefined ? editQuestion.multiline : undefined
   );
+
+  const wcRef = useRef(new Animated.Value(0)).current;
+  const lcRef = useRef(new Animated.Value(0)).current;
   const yesButtonFade = useRef(new Animated.Value(0)).current;
   const noButtonFade = useRef(new Animated.Value(0)).current;
   const submitButtonFade = useRef(new Animated.Value(0)).current;
+  const keyboardDodgeRef = useRef(new Animated.Value(0)).current;
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
   useEffect(() => {
@@ -181,6 +194,22 @@ export default function FreeResponseAnswers({
     }).start();
   }, [valid]);
 
+  useEffect(() => {
+    Animated.timing(wcRef, {
+      toValue: wcVal === "" ? 0 : 1,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [wcVal]);
+
+  useEffect(() => {
+    Animated.timing(lcRef, {
+      toValue: lcVal === "" ? 0 : 1,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [lcVal]);
+
   return (
     <View style={[styles.centerView, { flex: 1, width: "100%" }]}>
       <View style={{ width: "100%", flex: 1 }} />
@@ -196,15 +225,22 @@ export default function FreeResponseAnswers({
             Word Count:
           </Text>
           <View style={[styles.centerView, { flex: 1 }]}>
-            <Text
-              style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 20,
-                color: "#853b30",
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync();
+                setWCModalVisible(true);
               }}
             >
-              {wordCount === 0 ? "Unlimited" : wordCount}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 20,
+                  color: "#853b30",
+                }}
+              >
+                {wordCount === 0 ? "Unlimited" : wordCount}
+              </Text>
+            </Pressable>
           </View>
         </View>
         <Spacer width={"100%"} height={20} />
@@ -246,15 +282,22 @@ export default function FreeResponseAnswers({
           <View
             style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
           >
-            <Text
-              style={{
-                fontFamily: "Lato_400Regular",
-                fontSize: 20,
-                color: "#853b30",
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync();
+                setLCModalVisible(true);
               }}
             >
-              {letterCount === 0 ? "Unlimited" : letterCount}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 20,
+                  color: "#853b30",
+                }}
+              >
+                {letterCount === 0 ? "Unlimited" : letterCount}
+              </Text>
+            </Pressable>
           </View>
         </View>
         <Spacer width="100%" height={20} />
@@ -453,6 +496,226 @@ export default function FreeResponseAnswers({
         </Text>
       </AnimatedTouchable>
       <View style={{ width: "100%", flex: 1 }} />
+      <Modal visible={lcModalVisible} transparent animationType="fade">
+        <Pressable
+          onPress={() => setLCModalVisible(false)}
+          style={{
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          }}
+        >
+          <Animated.View
+            style={{
+              width: 300,
+              backgroundColor: "#FFF",
+              borderRadius: 7.5,
+              padding: 20,
+              transform: [
+                {
+                  translateY: keyboardDodgeRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -SCREEN_HEIGHT / 7.5],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Pressable>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 25,
+                  color: "#853b30",
+                  alignSelf: "center",
+                }}
+              >
+                Enter Letter Count
+              </Text>
+              <Spacer width="100%" height={40} />
+              <TextInput
+                onFocus={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onBlur={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onChangeText={(text) => setLCVal(text)}
+                value={lcVal}
+                keyboardType="number-pad"
+                selectionColor="#FFF"
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  color: "#FFF",
+                  textAlign: "center",
+                  fontSize: 20,
+                  padding: 10,
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                }}
+              />
+              <AnimatedSpacer
+                width="100%"
+                height={lcRef.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 20],
+                })}
+              />
+              <AnimatedTouchable
+                onPress={() => {
+                  setLetterCount(parseInt(lcVal));
+                  setLCModalVisible(false);
+                  setLCVal("");
+                }}
+                style={{
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                  alignSelf: "center",
+                  padding: lcRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 10],
+                  }),
+                  width: lcRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 82],
+                  }),
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    color: "#FFF",
+                    fontSize: 20,
+                  }}
+                >
+                  Submit
+                </Text>
+              </AnimatedTouchable>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+      <Modal visible={wcModalVisible} transparent animationType="fade">
+        <Pressable
+          onPress={() => setWCModalVisible(false)}
+          style={{
+            width: "100%",
+            height: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+          }}
+        >
+          <Animated.View
+            style={{
+              width: 300,
+              backgroundColor: "#FFF",
+              borderRadius: 7.5,
+              padding: 20,
+              transform: [
+                {
+                  translateY: keyboardDodgeRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -SCREEN_HEIGHT / 7.5],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Pressable>
+              <Text
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  fontSize: 25,
+                  color: "#853b30",
+                  alignSelf: "center",
+                }}
+              >
+                Enter Word Count
+              </Text>
+              <Spacer width="100%" height={40} />
+              <TextInput
+                onFocus={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onBlur={() =>
+                  Animated.timing(keyboardDodgeRef, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start()
+                }
+                onChangeText={(text) => setWCVal(text)}
+                value={wcVal}
+                keyboardType="number-pad"
+                selectionColor="#FFF"
+                style={{
+                  fontFamily: "Lato_400Regular",
+                  color: "#FFF",
+                  textAlign: "center",
+                  fontSize: 20,
+                  padding: 10,
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                }}
+              />
+              <AnimatedSpacer
+                width="100%"
+                height={wcRef.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 20],
+                })}
+              />
+              <AnimatedTouchable
+                onPress={() => {
+                  setWordCount(parseInt(wcVal));
+                  setWCModalVisible(false);
+                  setWCVal("");
+                }}
+                style={{
+                  backgroundColor: "#853b30",
+                  borderRadius: 5,
+                  alignSelf: "center",
+                  padding: wcRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 10],
+                  }),
+                  width: wcRef.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 82],
+                  }),
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: "Lato_400Regular",
+                    color: "#FFF",
+                    fontSize: 20,
+                  }}
+                >
+                  Submit
+                </Text>
+              </AnimatedTouchable>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }

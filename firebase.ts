@@ -36,11 +36,13 @@ import {
 import { COUNTRY, TIME_UNIT } from "./constants/localization";
 import {
   AFFILIATION,
+  EDUCATION_LEVEL,
   GENDER,
   INCOME_LEVEL,
   JOB,
   LS,
   PET,
+  RACE,
   convertToEL,
   convertToGender,
   convertToIL,
@@ -928,6 +930,7 @@ const INTAKE_FILTERS: DEMOGRAPHIC_FILTER[] = [
 type DEMOGRAPHIC_FILTER =
   | "School"
   | "Country"
+  | "Education Level"
   | "State"
   | "City"
   | "Gender"
@@ -941,10 +944,41 @@ type DEMOGRAPHIC_FILTER =
   | "Pet"
   | "Living Situation";
 
+interface FilteredInfo {
+  school: { school: string; votes: number; likes: number }[];
+  educationLevel: {
+    educationLevel: EDUCATION_LEVEL;
+    votes: number;
+    likes: number;
+  }[];
+  country: { country: COUNTRY; votes: number; likes: number }[];
+  state: { state: string; votes: number; likes: number }[];
+  city: { city: string; votes: number; likes: number }[];
+  gender: { gender: GENDER; votes: number; likes: number }[];
+  race: { race: RACE; votes: number; likes: number }[];
+  hispanicOrLatino: {
+    hispanicOrLatino: boolean;
+    votes: number;
+    likes: number;
+  }[];
+  politicalAffiliation: {
+    politicalAffiliation: AFFILIATION;
+    votes: number;
+    likes: number;
+  }[];
+  lgbtq: { lbgtq: boolean; votes: number; likes: number }[];
+  incomeLevel: { incomeLevel: INCOME_LEVEL; votes: number; likes: number }[];
+  occupation: { occupation: JOB; votes: number; likes: number }[];
+  religion: { religion: string; votes: number; likes: number }[];
+  pet: { pet: PET; votes: number; likes: number }[];
+  livingSituation: { livingSituation: LS; votes: number; likes: number }[];
+}
+
 interface IntakeData {
   firstName: string;
   lastName: string;
   school: string;
+  educationLevel: EDUCATION_LEVEL;
   country: string;
   state: string;
   city: string;
@@ -962,7 +996,8 @@ interface IntakeData {
 }
 const submitIntakeSurvey = async (userID: string, answers: string[]) => {
   const [firstName, lastName] = answers[0].split(";");
-  const school = answers[2];
+  const school = answers[1];
+  const educationLevel = convertToEL(answers[2]);
 
   let country: string, state: string, city: string;
   const splitted = answers[3].split(";");
@@ -988,6 +1023,7 @@ const submitIntakeSurvey = async (userID: string, answers: string[]) => {
   const intakeData: IntakeData = {
     birthday,
     city,
+    educationLevel,
     country,
     firstName,
     gender,
@@ -1014,6 +1050,137 @@ const submitIntakeSurvey = async (userID: string, answers: string[]) => {
   });
 };
 
+const getFilterData = async (
+  votes: {
+    answer: string;
+    userID: string;
+  }[],
+  likes: { userID: string }[]
+): Promise<FilteredInfo> => {
+  const data: FilteredInfo = {
+    city: [],
+    country: [],
+    educationLevel: [],
+    gender: [],
+    hispanicOrLatino: [],
+    incomeLevel: [],
+    lgbtq: [],
+    livingSituation: [],
+    occupation: [],
+    pet: [],
+    politicalAffiliation: [],
+    race: [],
+    religion: [],
+    school: [],
+    state: [],
+  };
+
+  // TODO: update users during creation to reflect ID's accurately
+  const userIDs = votes.map((vote) => vote.userID);
+  for (const userID of userIDs) {
+    const q = query(
+      collection(db, "users"),
+      where("id", "==", userID),
+      limit(1)
+    );
+    const docID = (await getDocs(q)).docs[0].id;
+
+    const userData = (await getDoc(doc(db, `users/${docID}`))).data();
+    for (const key in data) {
+      const filterValue = userData[key];
+      const indexOfFilter = data[key].findIndex((item: any) => item[key]);
+      const hasLiked = likes.findIndex((item) => item.userID === userID) !== -1;
+      if (indexOfFilter === -1) {
+        const item: any = { votes: 1, likes: hasLiked ? 1 : 0 };
+        item[key] = filterValue;
+        data[key].push(item);
+      } else {
+        data[key][indexOfFilter].votes++;
+        if (hasLiked) data[key][indexOfFilter].likes++;
+      }
+    }
+  }
+
+  return data;
+};
+
+interface FilteredQuestionInfo {
+  school: { school: string; answerTallies: string[] }[];
+  educationLevel: {
+    educationLevel: EDUCATION_LEVEL;
+    answerTallies: string[];
+  }[];
+  country: { country: COUNTRY; answerTallies: string[] }[];
+  state: { state: string; answerTallies: string[] }[];
+  city: { city: string; answerTallies: string[] }[];
+  gender: { gender: GENDER; answerTallies: string[] }[];
+  race: { race: RACE; answerTallies: string[] }[];
+  hispanicOrLatino: {
+    hispanicOrLatino: boolean;
+    answerTallies: string[];
+  }[];
+  politicalAffiliation: {
+    politicalAffiliation: AFFILIATION;
+    answerTallies: string[];
+  }[];
+  lgbtq: { lbgtq: boolean; answerTallies: string[] }[];
+  incomeLevel: {
+    incomeLevel: INCOME_LEVEL;
+    answerTallies: string[];
+  }[];
+  occupation: { occupation: JOB; answerTallies: string[] }[];
+  religion: { religion: string; answerTallies: string[] }[];
+  pet: { pet: PET; answerTallies: string[] }[];
+  livingSituation: {
+    livingSituation: LS;
+    answerTallies: string[];
+  }[];
+}
+
+const getFilterDataForQuestion = async (question: ExtendedQuestion) => {
+  const filteredInfo: FilteredQuestionInfo = {
+    city: [],
+    country: [],
+    educationLevel: [],
+    gender: [],
+    hispanicOrLatino: [],
+    incomeLevel: [],
+    lgbtq: [],
+    livingSituation: [],
+    occupation: [],
+    pet: [],
+    politicalAffiliation: [],
+    race: [],
+    religion: [],
+    school: [],
+    state: [],
+  };
+
+  for (const vote of question.votes) {
+    const { answer, userID } = vote;
+    const q = query(
+      collection(db, "users"),
+      where("id", "==", userID),
+      limit(1)
+    );
+
+    const userData = (await getDocs(q)).docs[0].data();
+    for (const key in filteredInfo) {
+      const foundIndex = filteredInfo[key].findIndex(
+        (item: any) => item[key] === userData[key]
+      );
+      if (foundIndex === -1) {
+        const toPush: any = {};
+        toPush[key] = userData[key];
+        toPush.answerTallies = [answer];
+        filteredInfo[key].push(toPush);
+      } else filteredInfo[key][foundIndex].answerTallies.push(answer);
+    }
+  }
+
+  return filteredInfo;
+};
+
 export {
   db,
   auth,
@@ -1031,6 +1198,7 @@ export {
   handleDislike,
   getPollStatus,
   getPollDrafts,
+  getFilterData,
   createQuestion,
   deleteQuestion,
   INTAKE_FILTERS,
@@ -1049,6 +1217,7 @@ export {
   getLikedPollsForUser,
   getPublishedQuestions,
   updatePollDraftQuestion,
+  getFilterDataForQuestion,
   getPublishedPollsForUser,
   getPublishedPollsForNonAdmin,
   removeAnswersFromQuestionDraft,
@@ -1058,8 +1227,11 @@ export type {
   UserData,
   PollData,
   QuestionData,
+  FilteredInfo,
   PollDraftInfo,
   ExtendedQuestion,
+  DEMOGRAPHIC_FILTER,
   QuestionDataWithID,
   PublishedPollWithID,
+  FilteredQuestionInfo,
 };

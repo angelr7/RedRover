@@ -356,6 +356,130 @@ const RankingItemPreview = ({ question }: { question: ExtendedQuestion }) => {
   );
 };
 
+const SliderAveragePreview = ({ question }: { question: ExtendedQuestion }) => {
+  const [currVal, setCurrVal] = useState(0);
+
+  let average = 0;
+  for (const vote of question.votes)
+    average += parseInt(
+      vote.answer[0] === "$" ? vote.answer.slice(1) : vote.answer
+    );
+  average /= question.votes.length;
+
+  useEffect(() => {
+    let curr = 0;
+    const id = setInterval(() => {
+      if (curr === average) {
+        clearInterval(id);
+        return;
+      }
+      setCurrVal(curr + 1);
+      curr++;
+    }, 5);
+  }, []);
+
+  return (
+    <View
+      style={{
+        width: "100%",
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ fontFamily: "Lato_700Bold", fontSize: 25, color: "#FFF" }}>
+        Average: {currVal}
+      </Text>
+    </View>
+  );
+};
+
+const FreeResponseRandomPreview = ({
+  question,
+}: {
+  question: ExtendedQuestion;
+}) => {
+  const getRandomIndex = (max: number, min: number) =>
+    Math.floor(Math.random() * (max - min + 1) + min);
+
+  const [randomIndex, setRandomIndex] = useState(
+    getRandomIndex(0, question.votes.length - 1)
+  );
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    setInterval(() => {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setRandomIndex(getRandomIndex(0, question.votes.length - 1));
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  if (question.votes.length < 5)
+    return (
+      <View
+        style={{
+          width: "100%",
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: "Lato_400Regular",
+            color: "#853b30",
+            fontSize: 20,
+            textAlign: "center",
+          }}
+        >
+          We need some more data before we can give you a preview :/{"\n"}Feel
+          free to check back later!
+        </Text>
+      </View>
+    );
+  else
+    return (
+      <View
+        style={{
+          width: "100%",
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Animated.Text
+          style={{
+            fontFamily: "Lato_400Regular",
+            color: "#853b30",
+            fontSize: 22.5,
+            textAlign: "center",
+            opacity,
+          }}
+        >
+          {question.votes[randomIndex].answer}
+        </Animated.Text>
+      </View>
+    );
+};
+
 const getPreviewPages = (
   questions: ExtendedQuestion[],
   opacity: Animated.Value
@@ -407,16 +531,42 @@ const getPreviewPages = (
               : {}),
           }}
         >
-          {(() => {
-            switch (question.category) {
-              case "Multiple Choice":
-                return <MCBarChart question={question} />;
-              case "Ranking":
-                return <RankingItemPreview question={question} />;
-              default:
-                return <View />;
-            }
-          })()}
+          {question.votes.length === 0 ? (
+            <View
+              style={{
+                width: "100%",
+                height: "100%",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Animated.Text
+                style={{
+                  fontFamily: "Lato_700Bold",
+                  fontSize: 25,
+                  color: "#FFF",
+                  textAlign: "center",
+                }}
+              >
+                Be the first to vote!
+              </Animated.Text>
+            </View>
+          ) : (
+            (() => {
+              switch (question.category) {
+                case "Multiple Choice":
+                  return <MCBarChart question={question} />;
+                case "Ranking":
+                  return <RankingItemPreview question={question} />;
+                case "Range (Slider)":
+                  return <SliderAveragePreview question={question} />;
+                case "Free Response":
+                  return <FreeResponseRandomPreview question={question} />;
+                default:
+                  return <View />;
+              }
+            })()
+          )}
         </View>
         <Spacer width="100%" height={10} />
       </Animated.View>
